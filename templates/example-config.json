@@ -1,0 +1,46 @@
+{
+  "_comment": "Example config for generate_html.py. Copy and adapt this for any infographic.",
+  "title": "Q3 Performance Report",
+  "subtitle": "Key metrics — July to September 2024",
+  "footer": "© 2024 Acme Corp  |  Source: Internal Analytics  |  n=340 customers",
+  "palette": "modern-blue",
+
+  "kpis": [
+    { "value": "$2.4M", "label": "Revenue", "delta": "+18% YoY" },
+    { "value": "72",    "label": "NPS Score", "delta": "+5 pts" },
+    { "value": "2.1%",  "label": "Churn Rate", "delta": "-0.3%" },
+    { "value": "340",   "label": "New Customers", "delta": "" }
+  ],
+
+  "charts": [
+    {
+      "type": "horizontalBar",
+      "title": "Revenue by Product Line ($K)",
+      "dataset_label": "Revenue ($K)",
+      "labels": ["Product A", "Product B", "Product C", "Product D"],
+      "values": [840, 620, 540, 400]
+    },
+    {
+      "type": "donut",
+      "title": "Customer Segments",
+      "labels": ["Enterprise", "SMB", "Startup", "Other"],
+      "values": [45, 30, 15, 10]
+    },
+    {
+      "type": "line",
+      "title": "Monthly Revenue Trend ($K)",
+      "labels": ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep"],
+      "values": [180, 195, 210, 220, 230, 240, 260, 275, 290]
+    }
+  ],
+
+  "callout": "🎯  Enterprise segment grew 42% YoY — accelerate investment in this channel",
+
+  "steps": [
+    "Lead Generation",
+    "Discovery Call",
+    "Product Demo",
+    "Proposal",
+    "Contract & Close"
+  ]
+}
