@@ -24,7 +24,8 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
+from matplotlib.patches import FancyBboxPatch, FancyArrowPatch, Arc, Circle, Wedge
+import matplotlib.path as mpath
 import matplotlib.patheffects as pe
 import numpy as np
 
@@ -148,7 +149,7 @@ def draw_rounded_box(ax, x, y, w, h, bg, border, lw=2.5, radius=0.012):
     ax.add_patch(rect)
 
 
-def draw_title_bar(ax, x, y, w, h, bg, text, fg="#FFF", fontsize=9):
+def draw_title_bar(ax, x, y, w, h, bg, text, fg="#FFF", fontsize=9, category=""):
     """Colored title bar at top of a group box."""
     rect = FancyBboxPatch(
         (x, y + h - 0.035), w, 0.035,
@@ -160,12 +161,21 @@ def draw_title_bar(ax, x, y, w, h, bg, text, fg="#FFF", fontsize=9):
         clip_on=False,
     )
     ax.add_patch(rect)
+
+    # Icon left-offset from the group box left edge
+    icon_offset = 0.022
+    icon_cx = x + icon_offset
+    icon_cy = y + h - 0.018
+
     ax.text(
-        x + w / 2, y + h - 0.018,
+        x + icon_offset + (w - icon_offset) / 2, icon_cy,
         text, ha="center", va="center",
         fontsize=fontsize, fontweight="bold", color=fg,
         zorder=4, clip_on=False,
     )
+
+    # Draw the icon after text (higher zorder) so it sits on top if needed
+    draw_group_icon(ax, cx=icon_cx, cy=icon_cy, size=0.013, category=category, color=fg)
 
 
 def draw_component_chip(ax, x, y, w, h, label, border_color, text_color="#212121"):
@@ -205,6 +215,342 @@ def draw_dashed_arrow(ax, x0, y0, x1, y1, color="#9E9E9E"):
         ),
         zorder=1,
     )
+
+
+# ---------------------------------------------------------------------------
+# Group icon drawing primitives — one function per category
+# ---------------------------------------------------------------------------
+
+def _icon_kw(color):
+    """Shared patch kwargs for icon elements."""
+    return dict(facecolor=color, edgecolor=color, linewidth=0.8,
+                zorder=10, clip_on=False)
+
+
+def _draw_frontend(ax, cx, cy, s, color):
+    """Browser window: outer rect, address-bar strip, two dots."""
+    hw, hh = s * 0.85, s * 0.65
+    # outer window
+    ax.add_patch(mpatches.FancyBboxPatch(
+        (cx - hw, cy - hh), hw * 2, hh * 2,
+        boxstyle="round,pad=0.001",
+        facecolor="none", edgecolor=color, linewidth=1.2,
+        zorder=10, clip_on=False,
+    ))
+    # address bar strip
+    bar_h = hh * 0.38
+    ax.add_patch(mpatches.Rectangle(
+        (cx - hw, cy + hh - bar_h), hw * 2, bar_h,
+        **_icon_kw(color),
+    ))
+    # two dots in the bar
+    for dx in (-0.45, -0.15):
+        ax.add_patch(Circle(
+            (cx + dx * s, cy + hh - bar_h / 2),
+            radius=s * 0.07,
+            facecolor="none", edgecolor=color, linewidth=1.0,
+            zorder=10, clip_on=False,
+        ))
+
+
+def _draw_mobile(ax, cx, cy, s, color):
+    """Phone outline: tall thin rect + home-button dot."""
+    hw, hh = s * 0.40, s * 0.72
+    ax.add_patch(mpatches.FancyBboxPatch(
+        (cx - hw, cy - hh), hw * 2, hh * 2,
+        boxstyle="round,pad=0.002",
+        facecolor="none", edgecolor=color, linewidth=1.2,
+        zorder=10, clip_on=False,
+    ))
+    # home button
+    ax.add_patch(Circle(
+        (cx, cy - hh + s * 0.15), radius=s * 0.10,
+        facecolor="none", edgecolor=color, linewidth=1.0,
+        zorder=10, clip_on=False,
+    ))
+    # screen line
+    ax.add_patch(mpatches.Rectangle(
+        (cx - hw * 0.5, cy - hh + s * 0.30), hw, 0.005,
+        facecolor=color, edgecolor=color, linewidth=0, zorder=10, clip_on=False,
+    ))
+
+
+def _draw_gear(ax, cx, cy, s, color):
+    """Gear: two overlapping rectangles (rotated 45°) + central circle."""
+    from matplotlib.transforms import Affine2D
+    for angle in (0, 45, 90):
+        rect = mpatches.Rectangle(
+            (cx - s * 0.18, cy - s * 0.72),
+            s * 0.36, s * 1.44,
+            facecolor=color, edgecolor=color, linewidth=0,
+            zorder=10, clip_on=False,
+        )
+        t = Affine2D().rotate_around(cx, cy, np.radians(angle)) + ax.transData
+        rect.set_transform(t)
+        ax.add_patch(rect)
+    # inner circle cutout (draw slightly smaller circle in the title-bar bg color — not ideal but works)
+    ax.add_patch(Circle(
+        (cx, cy), radius=s * 0.32,
+        facecolor="none", edgecolor=color, linewidth=1.5,
+        zorder=11, clip_on=False,
+    ))
+
+
+def _draw_database(ax, cx, cy, s, color):
+    """Cylinder: bottom ellipse, body rectangle, top ellipse."""
+    ex, ey_b = s * 0.60, s * 0.22   # ellipse x-radius, y-radius
+    body_h   = s * 0.90
+    y_bottom = cy - s * 0.60
+    # body
+    ax.add_patch(mpatches.Rectangle(
+        (cx - ex, y_bottom), ex * 2, body_h,
+        facecolor=color, edgecolor=color, linewidth=0, zorder=10, clip_on=False,
+    ))
+    # bottom ellipse
+    ax.add_patch(mpatches.Ellipse(
+        (cx, y_bottom), ex * 2, ey_b * 2,
+        facecolor=color, edgecolor=color, linewidth=0, zorder=10, clip_on=False,
+    ))
+    # top ellipse (outline only so body shows through)
+    ax.add_patch(mpatches.Ellipse(
+        (cx, y_bottom + body_h), ex * 2, ey_b * 2,
+        facecolor=color, edgecolor=color, linewidth=0, zorder=11, clip_on=False,
+    ))
+
+
+def _draw_auth(ax, cx, cy, s, color):
+    """Padlock: rectangle body + arc shackle."""
+    bw, bh = s * 0.80, s * 0.60
+    by = cy - s * 0.55
+    # lock body
+    ax.add_patch(mpatches.FancyBboxPatch(
+        (cx - bw / 2, by), bw, bh,
+        boxstyle="round,pad=0.003",
+        facecolor=color, edgecolor=color, linewidth=0,
+        zorder=10, clip_on=False,
+    ))
+    # shackle arc (top half of ellipse)
+    ax.add_patch(Arc(
+        (cx, by + bh * 0.05), bw * 0.60, bh * 1.10,
+        angle=0, theta1=0, theta2=180,
+        edgecolor=color, linewidth=2.0, zorder=10, clip_on=False,
+    ))
+    # keyhole dot
+    ax.add_patch(Circle(
+        (cx, by + bh * 0.45), radius=s * 0.10,
+        facecolor="none", edgecolor=color, linewidth=1.0,
+        zorder=11, clip_on=False,
+    ))
+
+
+def _draw_queue(ax, cx, cy, s, color):
+    """Three horizontal lines — message queue."""
+    line_h = s * 0.12
+    gap    = s * 0.28
+    for i, dy in enumerate((-gap, 0, gap)):
+        ax.add_patch(mpatches.Rectangle(
+            (cx - s * 0.65, cy + dy - line_h / 2),
+            s * 1.30, line_h,
+            facecolor=color, edgecolor=color, linewidth=0,
+            zorder=10, clip_on=False,
+        ))
+
+
+def _draw_storage(ax, cx, cy, s, color):
+    """Stack of three thin disk slices."""
+    dh = s * 0.18
+    gap = s * 0.10
+    total = 3 * dh + 2 * gap
+    y0 = cy - total / 2
+    for i in range(3):
+        y = y0 + i * (dh + gap)
+        ax.add_patch(mpatches.Ellipse(
+            (cx, y + dh / 2), s * 1.20, dh,
+            facecolor=color, edgecolor=color, linewidth=0,
+            zorder=10, clip_on=False,
+        ))
+
+
+def _draw_cloud(ax, cx, cy, s, color):
+    """Three overlapping circles forming a cloud."""
+    circles = [
+        (cx - s * 0.38, cy - s * 0.05, s * 0.38),
+        (cx + s * 0.38, cy - s * 0.05, s * 0.38),
+        (cx,            cy + s * 0.20, s * 0.50),
+    ]
+    for ccx, ccy, r in circles:
+        ax.add_patch(Circle(
+            (ccx, ccy), radius=r,
+            facecolor=color, edgecolor=color, linewidth=0,
+            zorder=10, clip_on=False,
+        ))
+    # base rectangle to fill gap between lower circles
+    ax.add_patch(mpatches.Rectangle(
+        (cx - s * 0.70, cy - s * 0.28), s * 1.40, s * 0.28,
+        facecolor=color, edgecolor=color, linewidth=0,
+        zorder=10, clip_on=False,
+    ))
+
+
+def _draw_infrastructure(ax, cx, cy, s, color):
+    """Server rack: two stacked rectangles with LED dots."""
+    rw, rh = s * 1.10, s * 0.38
+    gap = s * 0.12
+    for i, dy in enumerate((-(rh + gap) / 2, (rh + gap) / 2)):
+        ax.add_patch(mpatches.FancyBboxPatch(
+            (cx - rw / 2, cy + dy - rh / 2), rw, rh,
+            boxstyle="round,pad=0.002",
+            facecolor="none", edgecolor=color, linewidth=1.2,
+            zorder=10, clip_on=False,
+        ))
+        # LED dot
+        ax.add_patch(Circle(
+            (cx + rw / 2 - s * 0.18, cy + dy),
+            radius=s * 0.07,
+            facecolor=color, edgecolor=color, linewidth=0,
+            zorder=11, clip_on=False,
+        ))
+
+
+def _draw_monitoring(ax, cx, cy, s, color):
+    """Line chart with an upward spike."""
+    pts_x = [cx - s * 0.70, cx - s * 0.25, cx + s * 0.10, cx + s * 0.70]
+    pts_y = [cy - s * 0.30, cy,             cy + s * 0.50, cy + s * 0.10]
+    ax.plot(pts_x, pts_y, color=color, lw=1.8,
+            transform=ax.transData, zorder=10, clip_on=False)
+    # peak dot
+    ax.plot([pts_x[2]], [pts_y[2]], 'o', color=color, markersize=4,
+            transform=ax.transData, zorder=10, clip_on=False)
+
+
+def _draw_ci_cd(ax, cx, cy, s, color):
+    """Circular refresh arrow: arc + arrowhead."""
+    ax.add_patch(Arc(
+        (cx, cy), s * 1.40, s * 1.40,
+        angle=0, theta1=30, theta2=330,
+        edgecolor=color, linewidth=2.0, zorder=10, clip_on=False,
+    ))
+    # arrowhead at theta1=30° end
+    ang = np.radians(30)
+    tip_x = cx + s * 0.70 * np.cos(ang)
+    tip_y = cy + s * 0.70 * np.sin(ang)
+    ax.add_patch(mpatches.FancyArrow(
+        tip_x - s * 0.12 * np.sin(ang),
+        tip_y + s * 0.12 * np.cos(ang),
+        s * 0.18 * np.sin(ang),
+        -s * 0.18 * np.cos(ang),
+        width=s * 0.12,
+        head_width=s * 0.28, head_length=s * 0.22,
+        facecolor=color, edgecolor=color, linewidth=0,
+        zorder=10, clip_on=False,
+    ))
+
+
+def _draw_ai_ml(ax, cx, cy, s, color):
+    """3-node neural network: circles connected by lines."""
+    nodes = [
+        (cx - s * 0.65, cy),
+        (cx + s * 0.10, cy + s * 0.45),
+        (cx + s * 0.10, cy - s * 0.45),
+    ]
+    # edges first
+    for n1 in nodes:
+        for n2 in nodes:
+            if n1 is not n2:
+                ax.plot([n1[0], n2[0]], [n1[1], n2[1]],
+                        color=color, lw=1.0, alpha=0.8,
+                        transform=ax.transData, zorder=9, clip_on=False)
+    # nodes on top
+    for nx, ny in nodes:
+        ax.add_patch(Circle(
+            (nx, ny), radius=s * 0.17,
+            facecolor=color, edgecolor=color, linewidth=0,
+            zorder=10, clip_on=False,
+        ))
+
+
+def _draw_other(ax, cx, cy, s, color):
+    """Diamond polygon as default / fallback."""
+    diamond = mpatches.Polygon(
+        [(cx, cy + s * 0.70),
+         (cx + s * 0.55, cy),
+         (cx, cy - s * 0.70),
+         (cx - s * 0.55, cy)],
+        closed=True, facecolor=color, edgecolor=color, linewidth=0,
+        zorder=10, clip_on=False,
+    )
+    ax.add_patch(diamond)
+
+
+# Map category keys (as found in layer data) to icon draw functions
+_ICON_DRAW_FNS = {
+    "frontend":      _draw_frontend,
+    "mobile":        _draw_mobile,
+    "backend":       _draw_gear,
+    "backend_api":   _draw_gear,
+    "database":      _draw_database,
+    "auth":          _draw_auth,
+    "queue":         _draw_queue,
+    "events":        _draw_queue,
+    "storage":       _draw_storage,
+    "cloud":         _draw_cloud,
+    "infrastructure": _draw_infrastructure,
+    "infra":         _draw_infrastructure,
+    "monitoring":    _draw_monitoring,
+    "ci_cd":         _draw_ci_cd,
+    "ai_ml":         _draw_ai_ml,
+    "other":         _draw_other,
+}
+
+# Also build a fuzzy fallback using display label → canonical key
+_LABEL_TO_ICON = {
+    "frontend":       "frontend",
+    "mobile":         "mobile",
+    "backend / api":  "backend_api",
+    "backend":        "backend",
+    "database":       "database",
+    "auth":           "auth",
+    "queue / events": "queue",
+    "storage":        "storage",
+    "cloud services": "cloud",
+    "cloud":          "cloud",
+    "infrastructure": "infrastructure",
+    "monitoring":     "monitoring",
+    "ci/cd":          "ci_cd",
+    "ai / ml":        "ai_ml",
+    "other":          "other",
+}
+
+
+def draw_group_icon(ax, cx, cy, size, category, color):
+    """
+    Draw a small patch-based icon centered at (cx, cy) in data coordinates.
+
+    Parameters
+    ----------
+    ax       : matplotlib Axes
+    cx, cy   : centre of the icon in data coords
+    size     : icon radius / half-size in data coords (use ~0.013)
+    category : layer category string (key in GROUP_STYLES or label text)
+    color    : foreground colour (white when on a coloured title bar)
+    """
+    # Resolve category → draw function
+    key = category.lower().replace(" ", "_").replace("/", "_").replace("-", "_")
+    # strip duplicate underscores
+    while "__" in key:
+        key = key.replace("__", "_")
+
+    fn = _ICON_DRAW_FNS.get(key)
+    if fn is None:
+        # Try label-based lookup
+        for label_key, icon_key in _LABEL_TO_ICON.items():
+            if label_key in key or key in label_key:
+                fn = _ICON_DRAW_FNS.get(icon_key)
+                break
+    if fn is None:
+        fn = _draw_other
+
+    fn(ax, cx, cy, size, color)
 
 
 # ---------------------------------------------------------------------------
@@ -294,7 +640,8 @@ def render_architecture(config: dict, output_path: str) -> Path:
         # Title bar
         draw_title_bar(ax, bx, by, bw, bh,
                        bg=style["title_bg"], text=label,
-                       fg=style["title_fg"], fontsize=8.5)
+                       fg=style["title_fg"], fontsize=8.5,
+                       category=category)
 
         # Component chips inside
         n_items = len(items)
@@ -390,7 +737,9 @@ def render_architecture(config: dict, output_path: str) -> Path:
 
     # ── Save ─────────────────────────────────────────────────────────────────
     out = Path(output_path)
-    fig.savefig(out, dpi=dpi, bbox_inches="tight",
+    # Use bbox_inches=None (no trimming) to preserve the exact 1080×1080px canvas.
+    # bbox_inches="tight" was causing the output to be cropped to ~831×831px.
+    fig.savefig(out, dpi=dpi, bbox_inches=None,
                 facecolor="#F8FAFC", pad_inches=0)
     plt.close(fig)
 
