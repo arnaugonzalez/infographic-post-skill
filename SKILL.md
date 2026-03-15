@@ -258,22 +258,26 @@ python scripts/generate_linkedin_arch.py \
 - **Max groups**: 9 (3×3 grid). If more components exist, merge related ones.
 - **Max items per group**: 6. If more, show the 5 most important + "...".
 
-### Layer color reference
+### Layer color + icon reference
 
-| Layer | Background | Border |
-|---|---|---|
-| Frontend | Light blue | Blue |
-| Mobile | Lavender | Purple |
-| Backend / API | Amber | Orange |
-| Database | Mint | Green |
-| Auth | Yellow | Gold |
-| Queue / Events | Purple | Deep purple |
-| Storage | Indigo light | Indigo |
-| Cloud Services | Cyan | Teal |
-| Infrastructure | Rose | Red |
-| AI / ML | Emerald | Green |
-| Monitoring | Warm gray | Brown |
-| CI/CD | Slate | Gray |
+Each group title bar automatically renders a small white patch-based icon drawn
+with matplotlib primitives — no external image files or emoji required.
+
+| Layer | Background | Border | Icon |
+|---|---|---|---|
+| Frontend | Light blue | Blue | Browser window |
+| Mobile | Lavender | Purple | Phone outline |
+| Backend / API | Amber | Orange | Gear |
+| Database | Mint | Green | Cylinder |
+| Auth | Yellow | Gold | Padlock |
+| Queue / Events | Purple | Deep purple | Three bar lines |
+| Storage | Indigo light | Indigo | Stacked disks |
+| Cloud Services | Cyan | Teal | Three-circle cloud |
+| Infrastructure | Rose | Red | Server rack |
+| AI / ML | Emerald | Green | Neural network nodes |
+| Monitoring | Warm gray | Brown | Line chart spike |
+| CI/CD | Slate | Gray | Circular arrow |
+| Other | Gray | Dark gray | Diamond |
 
 ### Examples
 

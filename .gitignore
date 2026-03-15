@@ -1,0 +1,9 @@
+scripts/__pycache__/
+*.pyc
+*.pyo
+.planning/
+ROADMAP.md
+*.png
+*.svg
+*.html
+arch.json
