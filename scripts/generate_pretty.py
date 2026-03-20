@@ -53,6 +53,49 @@ from pathlib import Path
 _SKILL_DIR = Path(__file__).resolve().parent.parent
 _ENV_PATH  = _SKILL_DIR / ".env"
 
+# ── Security helper ───────────────────────────────────────────────────────────
+
+_KEY_PATTERN = re.compile(r"AIza[a-zA-Z0-9_-]{30,}")
+
+
+def _redact_key(text: str) -> str:
+    """Replace any embedded API key values with [REDACTED] before printing."""
+    return _KEY_PATTERN.sub("[REDACTED]", text)
+
+
+def _handle_credential_error(exc: Exception) -> None:
+    """
+    If `exc` is an auth/credential error, print a user-friendly message and exit.
+    Non-auth errors are ignored so the caller can re-raise them normally.
+    """
+    exc_type = type(exc).__name__
+    exc_module = type(exc).__module__ or ""
+    credential_signals = (
+        "DefaultCredentialsError",
+        "PermissionDenied",
+        "Unauthenticated",
+        "UNAUTHENTICATED",
+    )
+    is_auth_error = (
+        any(sig in exc_type for sig in credential_signals)
+        or any(sig in str(exc) for sig in ("UNAUTHENTICATED", "credentials", "Permission denied"))
+        or "google.auth" in exc_module
+    )
+    if is_auth_error:
+        safe_msg = _redact_key(str(exc))
+        print(
+            f"❌  Credentials error: {safe_msg}\n"
+            "\n"
+            "   To fix:\n"
+            "     Run: cp .env.example .env  then add your API key or project ID\n"
+            "     Docs: see README.md for full setup instructions\n"
+            "\n"
+            "   Option A — AI Studio key:   set INFG_API_KEY in .env\n"
+            "   Option B — Vertex AI:       set INFG_VERTEX_PROJECT and run\n"
+            "                               gcloud auth application-default login"
+        )
+        sys.exit(1)
+
 
 def _load_dotenv(path: Path) -> None:
     if not path.exists():
@@ -123,11 +166,20 @@ def _build_genai_client(model_name: str = "") -> tuple:
         return genai.Client(api_key=api_key), "aistudio"
 
     print(
-        "❌  No backend configured.\n"
-        "   Option A — Vertex AI (recommended with GCP credits):\n"
-        "     bash scripts/setup_vertex_iam.sh my-gcp-project-id\n"
-        "   Option B — AI Studio API key:\n"
-        "     Add INFG_API_KEY=<your-key> to .env"
+        "❌  No credentials configured for pretty mode.\n"
+        "\n"
+        "   Option A — Google AI Studio (quickest setup, free tier available):\n"
+        "     1. Get a free API key at: https://aistudio.google.com/apikey\n"
+        "     2. cp .env.example .env\n"
+        "     3. Set INFG_API_KEY=<your-key> in .env\n"
+        "\n"
+        "   Option B — Google Cloud Vertex AI (recommended for production):\n"
+        "     1. Enable Vertex AI API in your GCP project\n"
+        "     2. gcloud auth application-default login\n"
+        "     3. cp .env.example .env\n"
+        "     4. Set INFG_VERTEX_PROJECT=<your-project-id> in .env\n"
+        "\n"
+        "   See README.md for full setup instructions."
     )
     sys.exit(1)
 
@@ -742,7 +794,13 @@ def generate_pretty(
     model_name : Gemini model identifier (default: gemini-3.1-flash-image-preview)
     """
     if not _GENAI_OK:
-        print("❌  google-genai is not installed.  →  pip install google-genai")
+        print(
+            "❌  google-genai is not installed (required for pretty mode only).\n"
+            "   Install with: pip install -r requirements.txt\n"
+            "   Or just the SDK: pip install google-genai\n"
+            "\n"
+            "   Note: Core matplotlib generation (generate.py) works without any extra packages."
+        )
         sys.exit(1)
 
     # ── Build client with smart backend routing ────────────────────────────────
@@ -776,6 +834,7 @@ def generate_pretty(
                 model_name = _IMAGE_FALLBACK
                 img_bytes, usage = _call_image_mode(prompt, client, model_name)
             else:
+                _handle_credential_error(e)
                 raise
 
         print_cost_report(model_name, usage, backend)
@@ -794,7 +853,10 @@ def generate_pretty(
     # ── HTML generation path (text models or image-mode fallback) ────────────
     print(f"🤖  Calling {model_name} (HTML generation mode) …")
     prompt   = _build_html_prompt(config, viz_type, use_icons=use_icons)
-    raw_html, usage = _call_text_mode(prompt, client, model_name)
+    try:
+        raw_html, usage = _call_text_mode(prompt, client, model_name)
+    except Exception as e:
+        _handle_credential_error(e)
     html     = _strip_fences(raw_html)
 
     print_cost_report(model_name, usage, backend)
