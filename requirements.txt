@@ -1,0 +1,9 @@
+matplotlib>=3.7
+Pillow>=10.0
+numpy>=1.24
+
+# Optional: AI-powered "pretty mode" (Gemini)
+# google-genai>=1.0
+
+# Optional: auto-screenshot HTML to PNG
+# playwright>=1.40

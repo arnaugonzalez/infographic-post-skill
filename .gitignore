@@ -7,3 +7,11 @@ ROADMAP.md
 *.svg
 *.html
 arch.json
+
+# Credentials and secrets
+.env
+.env.*
+!.env.example
+vertex_credentials.json
+*.key
+*.pem
