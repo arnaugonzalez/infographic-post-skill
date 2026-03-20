@@ -9,6 +9,10 @@ description: >
   "linkedin infographic", or "linkedin diagram" to ANY request — especially for architecture
   diagrams, system design visuals, or technical overviews from a CLAUDE.md or project context.
   This skill auto-reads the project's CLAUDE.md and directory structure to infer components.
+  VERSIONING: When the user adds any version-iteration phrase — "next version", "nueva version",
+  "siguiente version", "new version", "next design", "nouvelle version", "nächste version",
+  "próxima versión", "nuova versione", or any equivalent in any language — ALWAYS run
+  scripts/version_output.py to manage versioned output before generating.
 allowed-tools:
   - Bash
   - Write
@@ -19,6 +23,8 @@ dependencies:
     - matplotlib>=3.7
     - Pillow>=10.0
     - numpy>=1.24
+    - google-genai>=1.0          # required for "pretty" mode (replaces deprecated google-generativeai)
+    - playwright                 # optional — auto-screenshots pretty HTML → PNG
 ---
 
 # Infographic Skill
@@ -142,6 +148,22 @@ Always tell the user:
 
 ---
 
+## LinkedIn Text Post Rules
+
+When generating the accompanying LinkedIn text post for any infographic:
+
+- **HARD LIMIT: 2,500 characters maximum** (LinkedIn truncates at ~3,000 but
+  best engagement is under 2,500). Count characters, not words.
+- Open with a hook line (question or bold statement) in the first 2 lines
+  (these show before "...see more")
+- Use line breaks liberally for readability on mobile
+- End with a clear CTA (question to audience, or "Follow for more")
+- Include 3-5 relevant hashtags at the end (do NOT count toward the 2,500 limit)
+- If the user provided --learnings or a topic, the text post MUST focus on those
+  specific technologies/insights, not generic content
+
+---
+
 ## Examples
 
 **"Make an infographic showing our Q3 KPIs: Revenue $2.4M (+18%), NPS 72,
@@ -157,6 +179,213 @@ Churn 2.1%, New customers 340"**
 
 **"Turn this CSV of survey results into an infographic"**
 → Read the CSV, identify top 3–5 findings, use `data-spotlight` or `dashboard`.
+
+---
+
+---
+
+## "Pretty" Mode — Gemini-Powered Generative Designs
+
+> **Trigger**: user includes **"pretty"** or **"make pretty"** anywhere in their
+> request — e.g. *"make this architecture diagram pretty for linkedin"* or
+> *"pretty infographic of our Q3 KPIs"*.
+
+This mode replaces the matplotlib renderer with a **Google Gemini Pro** call that
+produces a visually stunning, self-contained HTML infographic (dark glassmorphism,
+CSS animations, SVG arrows) at 1080×1080 px. If Playwright is installed the HTML
+is automatically screenshotted to a PNG ready for LinkedIn.
+
+### Setup (one-time)
+
+Hay dos backends disponibles. **Vertex AI es el recomendado** si tienes crédito GCP.
+
+#### Opción A — Vertex AI (recomendado con crédito GCP $300)
+
+```bash
+# Configura IAM, service account y descarga la clave en un solo paso:
+bash scripts/setup_vertex_iam.sh mi-proyecto-gcp-id
+
+# Verifica que la policy está activa:
+python scripts/check_vertex_policy.py
+```
+
+Esto añade automáticamente al `.env`:
+```
+INFG_VERTEX_PROJECT=mi-proyecto-gcp-id
+INFG_VERTEX_LOCATION=us-central1
+GOOGLE_APPLICATION_CREDENTIALS=/ruta/a/vertex_credentials.json
+```
+
+El script crea el service account `infographic-skill-sa` con el rol `roles/aiplatform.user`.
+
+#### Opción B — AI Studio API key (fallback)
+
+```
+INFG_API_KEY=<your-google-ai-studio-key>
+```
+
+#### Dependencias comunes
+
+```bash
+pip install google-genai google-auth google-auth-httplib2
+# Opcional — export PNG desde HTML:
+pip install playwright && playwright install chromium
+```
+
+#### Aviso de policy revocada
+
+`generate_pretty.py` verifica automáticamente las credenciales Vertex AI al arrancar.
+Si la policy fue revocada (rol eliminado, clave borrada, etc.) muestra un aviso
+**antes** de intentar generar la imagen:
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️  AVISO: las credenciales de Vertex AI no son válidas
+   Error: ...
+   Diagnóstico completo:
+     python scripts/check_vertex_policy.py
+   Re-configurar:
+     bash scripts/setup_vertex_iam.sh
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+Para diagnóstico completo (4 checks: key file, credenciales, IAM, API):
+```bash
+python scripts/check_vertex_policy.py
+```
+
+### Workflow
+
+**Step 1 — Parse context** (same as the standard LinkedIn flow):
+```bash
+python scripts/parse_context.py \
+  --root /path/to/project \
+  --title "My App Architecture" \
+  --output arch.json
+```
+
+**Step 2 — Generate pretty HTML (+ optional PNG)**:
+```bash
+python scripts/generate_pretty.py \
+  --config arch.json \
+  --output pretty_arch.html
+```
+
+Quick inline mode (no JSON file needed):
+```bash
+python scripts/generate_pretty.py \
+  --layers "Frontend:React,Next.js|Backend:FastAPI,Celery|Database:PostgreSQL,Redis|Cloud:AWS S3,CloudFront" \
+  --title "My SaaS Architecture" \
+  --author "Your Name" \
+  --output pretty_arch.html
+```
+
+With learnings focus (drives infographic content to emphasize specific technologies):
+```bash
+python scripts/generate_pretty.py \
+  --config arch.json \
+  --learnings "FastAPI async patterns, PostgreSQL JSONB for flexible schemas" \
+  --output pretty.png
+```
+
+Dashboard / KPI mode (use `--type dashboard`):
+```bash
+python scripts/generate_pretty.py \
+  --text "Revenue $2.4M (+18%), NPS 72, Churn 2.1%, New customers 340" \
+  --type dashboard \
+  --title "Q3 Performance" \
+  --output pretty_kpis.html
+```
+
+Change the Gemini model (default `gemini-2.5-flash-image`):
+```bash
+# Best quality HTML output (works on Vertex AI)
+python scripts/generate_pretty.py --config arch.json --model gemini-2.5-pro --output pretty.html
+
+# Fast + cheap (works on Vertex AI)
+python scripts/generate_pretty.py --config arch.json --model gemini-2.0-flash --output pretty.html
+
+# Native image generation — no Playwright needed (works on Vertex AI)
+python scripts/generate_pretty.py --config arch.json --model gemini-2.5-flash-image --output pretty.png
+```
+
+Available models (Feb 2026):
+| Model ID | Output | Backend | Notes |
+|---|---|---|---|
+| `gemini-3.1-flash-image-preview` | **PNG directly** | AI Studio | **Default** — newest image gen; auto-routed to AI Studio (INFG_API_KEY) |
+| `gemini-2.5-flash-image` | **PNG directly** | Vertex AI | Stable image gen fallback, no Playwright needed |
+| `gemini-2.5-pro` | HTML → PNG | Vertex AI | Best quality HTML output |
+| `gemini-2.0-flash` | HTML → PNG | Vertex AI | Fast, lowest cost |
+| `gemini-2.0-flash-lite` | HTML → PNG | Vertex AI | Cheapest option |
+| `gemini-3-pro-preview` | HTML → PNG | AI Studio | Auto-routed to AI Studio (INFG_API_KEY) |
+| `gemini-3.1-pro-preview` | HTML → PNG | AI Studio | Auto-routed to AI Studio (INFG_API_KEY) |
+
+**Backend routing is automatic** — you never need to configure the backend manually.
+The script reads both `INFG_API_KEY` and `INFG_VERTEX_PROJECT` from `.env` and routes
+each model to the cheapest available endpoint that supports it.
+
+### Cost report
+
+Every invocation prints a cost breakdown immediately after generation:
+
+```
+┌──────────────────────────────────────────────┐
+│            ⚡ Gemini Generation Cost          │
+├──────────────────────────────────────────────┤
+│  Model   gemini-2.5-flash-image              │
+├──────────────────────────────────────────────┤
+│    Input      4,231 tok              $0.000317│
+│    Image(s)       1 img              $0.039000│
+├──────────────────────────────────────────────┤
+│    TOTAL                             $0.039317│
+└──────────────────────────────────────────────┘
+  ⚠ Estimates — verify at: https://ai.google.dev/pricing
+```
+
+Fields shown when non-zero: input tokens, output tokens, thinking tokens, images generated.
+
+### Icon enhancement (automatic for Gemini 2.5+)
+
+When the selected model is **Gemini 2.5 or higher**, icon mode is activated
+automatically — no extra flags needed.
+
+| Model | What changes |
+|---|---|
+| Image models (`*-image`) | Gemini draws recognizable brand logos inside each chip — React atom, Docker whale, PostgreSQL elephant, Kubernetes helm, etc. in official brand colors. |
+| HTML/text models | Each chip gets an inline SVG brand icon (16×16 px) or emoji fallback prepended to the text. Chip layout switches to `flex` row. |
+
+The script prints `🎨  Icon mode: enabled` when active.
+
+### What pretty mode produces
+
+| Feature | Standard renderer | Pretty mode (Gemini < 2.5) | Pretty mode (Gemini 2.5+) |
+|---|---|---|---|
+| Output | `.png` via matplotlib | `.html` + auto `.png` via Playwright | same |
+| Background | Light `#F8FAFC` | Rich dark gradient | same |
+| Cards | Flat colored boxes | Glassmorphism (blur + rgba) | same |
+| Animations | None | Float, blob, SVG draw-on | same |
+| Arrows | Dashed matplotlib lines | Animated SVG stroke-dashoffset | same |
+| Typography | System matplotlib fonts | CSS gradient clip text, 800 weight | same |
+| **Icons** | **None** | **None** | **Brand logos per chip** |
+
+### Decision rule
+
+| User says | Action |
+|---|---|
+| "for linkedin" | Standard `generate_linkedin_arch.py` |
+| "pretty" or "make pretty" | `generate_pretty.py` (Gemini mode) |
+| "pretty for linkedin" | `generate_pretty.py` → PNG (Gemini mode) |
+
+### Examples
+
+**"Make our architecture diagram pretty for linkedin"**
+→ Run `parse_context.py --root .` → `generate_pretty.py --config arch.json --output pretty.html`
+
+**"Pretty infographic of Q3 KPIs: Revenue $2.4M, NPS 72, Churn 2.1%"**
+→ `generate_pretty.py --text "..." --type dashboard --title "Q3 KPIs" --output q3.html`
+
+**"Make this pretty: FastAPI backend, Flutter app, PostgreSQL, Redis, AWS"**
+→ `generate_pretty.py --layers "Backend:FastAPI|Mobile:Flutter|Database:PostgreSQL,Redis|Cloud:AWS" --output pretty.html`
 
 ---
 
@@ -258,26 +487,33 @@ python scripts/generate_linkedin_arch.py \
 - **Max groups**: 9 (3×3 grid). If more components exist, merge related ones.
 - **Max items per group**: 6. If more, show the 5 most important + "...".
 
-### Layer color + icon reference
+### Layer color reference
 
-Each group title bar automatically renders a small white patch-based icon drawn
-with matplotlib primitives — no external image files or emoji required.
+| Layer | Background | Border |
+|---|---|---|
+| Frontend | Light blue | Blue |
+| Mobile | Lavender | Purple |
+| Backend / API | Amber | Orange |
+| Database | Mint | Green |
+| Auth | Yellow | Gold |
+| Queue / Events | Purple | Deep purple |
+| Storage | Indigo light | Indigo |
+| Cloud Services | Cyan | Teal |
+| Infrastructure | Rose | Red |
+| AI / ML | Emerald | Green |
+| Monitoring | Warm gray | Brown |
+| CI/CD | Slate | Gray |
 
-| Layer | Background | Border | Icon |
-|---|---|---|---|
-| Frontend | Light blue | Blue | Browser window |
-| Mobile | Lavender | Purple | Phone outline |
-| Backend / API | Amber | Orange | Gear |
-| Database | Mint | Green | Cylinder |
-| Auth | Yellow | Gold | Padlock |
-| Queue / Events | Purple | Deep purple | Three bar lines |
-| Storage | Indigo light | Indigo | Stacked disks |
-| Cloud Services | Cyan | Teal | Three-circle cloud |
-| Infrastructure | Rose | Red | Server rack |
-| AI / ML | Emerald | Green | Neural network nodes |
-| Monitoring | Warm gray | Brown | Line chart spike |
-| CI/CD | Slate | Gray | Circular arrow |
-| Other | Gray | Dark gray | Diamond |
+**Learnings-focused posts:** When the user specifies technologies or learnings,
+pass them via `--learnings` to generate_pretty.py so the infographic design
+emphasizes those specific topics:
+```bash
+python scripts/generate_pretty.py \
+  --learnings "Event-driven architecture with Kafka, CQRS pattern" \
+  --layers "Backend:FastAPI|Queue:Kafka|Database:PostgreSQL" \
+  --title "What I Learned Building Event-Driven Systems" \
+  --output pretty.png
+```
 
 ### Examples
 
@@ -289,3 +525,81 @@ with matplotlib primitives — no external image files or emoji required.
 
 **"For linkedin: FastAPI backend, Flutter app, PostgreSQL, Redis, AWS"**
 → Run `parse_context.py --text "FastAPI backend, Flutter app, PostgreSQL, Redis, AWS"` → render
+
+---
+
+## Versioned Output — "Next Version" / "Nueva Version"
+
+> **Trigger**: user includes any version-iteration phrase in any language — "next version",
+> "nueva version", "siguiente version", "new version", "next design", "nouvelle version",
+> "nächste version", "próxima versión", "nuova versione", or equivalent.
+
+When this trigger is detected, run `scripts/version_output.py` **before** generating the
+infographic to manage versioned output directories automatically.
+
+### Directory structure (auto-created)
+
+```
+infographics/        ← or designs/, generated/, output/ if already exists
+├── v1/              ← archived versions (read-only history)
+├── v2/
+├── v3/
+└── v4_last/         ← always the current / latest version
+```
+
+### Step-by-step workflow
+
+**Step 1 — Prepare the next version directory:**
+```bash
+OUTPUT=$(python scripts/version_output.py --root /path/to/project)
+```
+This prints the new version path to stdout (e.g. `/project/infographics/v2_last`) and
+archives the previous `v{n}_last` → `v{n}` on stderr so you can see the history.
+
+**Step 2 — Generate into that directory:**
+```bash
+# Standard mode
+python scripts/generate.py --output "$OUTPUT/infographic.png" ...
+
+# Pretty / Gemini mode
+python scripts/generate_pretty.py --layers "..." --output "$OUTPUT/infographic.png"
+
+# LinkedIn arch
+python scripts/generate_linkedin_arch.py --config arch.json --output "$OUTPUT/linkedin_arch.png"
+```
+
+**Step 3 — Tell the user:**
+- Which version was just created (e.g. "Saved as **v3_last**")
+- Where the file is (full path)
+- That previous versions are preserved in `v1/`, `v2/`, etc.
+
+### List existing versions
+
+```bash
+python scripts/version_output.py --root /path/to/project --list
+```
+
+Output example:
+```
+  Versions in: /project/infographics
+  ──────────────────────────────────────────
+  v1              2 file(s)  [.html, .png]
+  v2              1 file(s)  [.png]
+  v3_last         1 file(s)  [.png]  ← current
+```
+
+### First call (no existing versions)
+
+If no versioned directory exists yet, `version_output.py` creates `infographics/v1_last/`
+automatically. No action needed from you — just capture the output and use it.
+
+### Examples
+
+**"Next version of the dashboard infographic"**
+→ `OUTPUT=$(python scripts/version_output.py --root .)` → generate into `$OUTPUT/`
+
+**"Nueva version, same style"**
+→ Same as above — language doesn't matter, trigger is the same.
+
+**"Show me the versions"**
+→ `python scripts/version_output.py --root . --list`
