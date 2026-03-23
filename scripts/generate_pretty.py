@@ -116,6 +116,13 @@ _VERTEX_PROJECT  = os.environ.get("INFG_VERTEX_PROJECT",  "").strip()
 _VERTEX_LOCATION = os.environ.get("INFG_VERTEX_LOCATION", "us-central1").strip()
 _USE_VERTEX      = bool(_VERTEX_PROJECT)
 
+# -- LLM provider configuration -----------------------------------------------
+_LLM_PROVIDER       = os.environ.get("INFG_LLM_PROVIDER",      "").strip().lower()
+_LLM_MODEL          = os.environ.get("INFG_LLM_MODEL",         "").strip()
+_LLM_API_KEY        = os.environ.get("INFG_LLM_API_KEY",       "").strip()
+_OPENROUTER_API_KEY = os.environ.get("INFG_OPENROUTER_API_KEY", "").strip()
+_IMAGE_MODEL_ENV    = os.environ.get("INFG_IMAGE_MODEL",       "").strip()
+
 # Models only available on AI Studio (404 on Vertex AI as of Feb 2026).
 # These are automatically routed to AI Studio when INFG_API_KEY is set.
 _AI_STUDIO_ONLY = frozenset({
@@ -714,7 +721,7 @@ def _call_image_mode(
     return image_bytes, usage
 
 
-def _call_text_mode(
+def _call_gemini_text_mode(
     prompt: str, client, model: str
 ) -> tuple[str, dict]:
     """
@@ -777,11 +784,24 @@ def _playwright_screenshot(html_path: Path) -> Path | None:
 _IMAGE_FALLBACK = "gemini-2.5-flash-image"   # used when the primary image model returns 404
 
 
+def _resolve_llm_provider(args) -> tuple[str, str | None]:
+    """Resolve LLM provider and model from CLI flags and env vars.
+
+    Precedence: CLI flag > env var > default ("gemini").
+    Returns (provider, model_or_None).
+    """
+    provider = (getattr(args, "llm_provider", None) or _LLM_PROVIDER or "gemini").lower()
+    model    = getattr(args, "llm_model", None) or _LLM_MODEL or None
+    return provider, model
+
+
 def generate_pretty(
     config: dict,
     output: str = "pretty_infographic.png",
     viz_type: str = "architecture",
     model_name: str = "gemini-3.1-flash-image-preview",
+    llm_provider: str = "gemini",
+    llm_model: str | None = None,
 ) -> Path:
     """
     Generate a Gemini-powered pretty infographic and print a cost report.
@@ -854,9 +874,20 @@ def generate_pretty(
     print(f"🤖  Calling {model_name} (HTML generation mode) …")
     prompt   = _build_html_prompt(config, viz_type, use_icons=use_icons)
     try:
-        raw_html, usage = _call_text_mode(prompt, client, model_name)
+        if llm_provider == "gemini":
+            effective_model = llm_model or model_name
+            raw_html, usage = _call_gemini_text_mode(prompt, client, effective_model)
+        elif llm_provider == "openrouter":
+            print("🔧  OpenRouter text adapter coming in Phase 2 — set INFG_LLM_PROVIDER=gemini for now")
+            raise NotImplementedError("OpenRouter support coming in Phase 2")
+        else:
+            print(f"❌  Unknown LLM provider: {llm_provider!r}. Supported: gemini, openrouter")
+            sys.exit(1)
+    except NotImplementedError:
+        raise
     except Exception as e:
         _handle_credential_error(e)
+        raise
     html     = _strip_fences(raw_html)
 
     print_cost_report(model_name, usage, backend)
@@ -897,6 +928,10 @@ if __name__ == "__main__":
     ap.add_argument("--cta",      default="Follow for more software architecture content")
     ap.add_argument("--model",    default="gemini-3.1-flash-image-preview",
                     help="Gemini model (default: gemini-3.1-flash-image-preview)")
+    ap.add_argument("--llm-provider", default=None,
+                    help="LLM provider for text/HTML path: gemini (default) or openrouter")
+    ap.add_argument("--llm-model",    default=None,
+                    help="LLM model override for text/HTML path (e.g. gemini-2.5-pro)")
     ap.add_argument("--output",   default="pretty_infographic.png",
                     help="Output file (.png for image models, .html for text models)")
     ap.add_argument("--learnings", default="",
@@ -941,4 +976,7 @@ if __name__ == "__main__":
     if args.learnings:
         config["learnings"] = args.learnings
 
-    generate_pretty(config, args.output, args.type, args.model)
+    llm_provider, llm_model = _resolve_llm_provider(args)
+    image_model = _IMAGE_MODEL_ENV if (_IMAGE_MODEL_ENV and args.model == "gemini-3.1-flash-image-preview") else args.model
+    generate_pretty(config, args.output, args.type, image_model,
+                    llm_provider=llm_provider, llm_model=llm_model)
