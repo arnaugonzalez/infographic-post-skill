@@ -1,19 +1,76 @@
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+status: Phase complete — ready for verification
+stopped_at: Completed 01-provider-resolution-infrastructure-01-PLAN.md
+last_updated: "2026-03-23T20:25:17.415Z"
+progress:
+  total_phases: 3
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 1
+---
+
 # Project State
 
-**Project:** Infographic Skill
-**Last activity:** 2026-03-23 - Completed quick task 260323-hr7
+## Project Reference
 
-## Current Phase
-N/A — quick tasks only
+See: .planning/PROJECT.md (updated 2026-03-23)
 
-## Blockers/Concerns
-None
+**Core value:** Turn any data or context into a publication-ready infographic with one command.
+**Current focus:** Phase 01 — provider-resolution-infrastructure
 
-### Quick Tasks Completed
+## Current Position
 
-| # | Description | Date | Commit | Directory |
-|---|-------------|------|--------|-----------|
-| 1 | Add professional patch-based icons to architecture diagram group title bars | 2026-03-15 | 48fe8f4 | .planning/quick/1-add-professional-icons-symbols-to-archit |
-| 2 | Improve LinkedIn infographic: anti-sketch prompts, --learnings param, 2500-char text post rule | 2026-03-20 | 1b23201 | .planning/quick/260320-g0a-improve-linkedin-infographic-and-text-po |
-| 3 | Prepare infographic skill for open source release: security hardening, .env.example, requirements.txt, README.md, credential error handling | 2026-03-20 | 2fc49e5 | .planning/quick/260320-h81-prepare-infographic-skill-for-open-sourc |
-| 4 | Fix OSS publish blockers: create scripts/version_output.py and MIT LICENSE file | 2026-03-23 | 90c1149 | .planning/quick/260323-hr7-fix-oss-publish-blockers-create-version- |
+Phase: 01 (provider-resolution-infrastructure) — EXECUTING
+Plan: 1 of 1
+
+## Performance Metrics
+
+**Velocity:**
+
+- Total plans completed: 0
+- Average duration: —
+- Total execution time: 0 hours
+
+**By Phase:**
+
+| Phase | Plans | Total | Avg/Plan |
+|-------|-------|-------|----------|
+| - | - | - | - |
+
+**Recent Trend:**
+
+- Last 5 plans: —
+- Trend: —
+
+*Updated after each plan completion*
+| Phase 01-provider-resolution-infrastructure P01 | 3 | 2 tasks | 2 files |
+
+## Accumulated Context
+
+### Decisions
+
+Decisions are logged in PROJECT.md Key Decisions table.
+Recent decisions affecting current work:
+
+- Provider resolver: flat `if/elif` dispatch — no ABC, no registry, no LiteLLM
+- OpenRouter HTTP call: use `requests.post()` for v1.0 (zero new required dependency); `openai` SDK deferred to v1.x
+- Image path: Gemini-only in v1.0 — OpenRouter is text path only
+- `_call_text_mode()` must be renamed to `_call_gemini_text_mode()` in Phase 1 to disambiguate
+- [Phase 01-provider-resolution-infrastructure]: Renamed _call_text_mode to _call_gemini_text_mode to make provider explicit; INFG_IMAGE_MODEL only applies when --model flag is at default; OpenRouter stub raises NotImplementedError with Phase 2 note
+
+### Pending Todos
+
+None yet.
+
+### Blockers/Concerns
+
+None yet.
+
+## Session Continuity
+
+Last session: 2026-03-23T20:25:17.410Z
+Stopped at: Completed 01-provider-resolution-infrastructure-01-PLAN.md
+Resume file: None

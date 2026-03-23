@@ -140,6 +140,14 @@ try:
 except ImportError:
     _GENAI_OK = False
 
+# ── HTTP client for OpenRouter ────────────────────────────────────────────────
+try:
+    import requests as _requests_lib   # pip install requests
+    _REQUESTS_OK = True
+except ImportError:
+    _requests_lib = None
+    _REQUESTS_OK = False
+
 # ── Vertex AI helpers ─────────────────────────────────────────────────────────
 
 
@@ -175,18 +183,16 @@ def _build_genai_client(model_name: str = "") -> tuple:
     print(
         "❌  No credentials configured for pretty mode.\n"
         "\n"
-        "   Option A — Google AI Studio (quickest setup, free tier available):\n"
-        "     1. Get a free API key at: https://aistudio.google.com/apikey\n"
+        "   Recommended path — Google AI Studio for the default max-quality image model:\n"
+        "     1. Get an API key at: https://aistudio.google.com/apikey\n"
         "     2. cp .env.example .env\n"
         "     3. Set INFG_API_KEY=<your-key> in .env\n"
         "\n"
-        "   Option B — Google Cloud Vertex AI (recommended for production):\n"
-        "     1. Enable Vertex AI API in your GCP project\n"
-        "     2. gcloud auth application-default login\n"
-        "     3. cp .env.example .env\n"
-        "     4. Set INFG_VERTEX_PROJECT=<your-project-id> in .env\n"
+        "   Optional path — Vertex AI:\n"
+        "     1. Enable Vertex AI and run: gcloud auth application-default login\n"
+        "     2. Set INFG_VERTEX_PROJECT=<your-project-id> in .env\n"
         "\n"
-        "   See README.md for full setup instructions."
+        "   See README.md for the supported setup paths."
     )
     sys.exit(1)
 
@@ -194,7 +200,7 @@ def _build_genai_client(model_name: str = "") -> tuple:
 def _vertex_policy_warning() -> None:
     """
     Quick inline check: warns if Vertex AI credentials appear invalid.
-    Does not block execution — use check_vertex_policy.py for a full diagnosis.
+    Does not block execution.
     """
     try:
         import google.auth
@@ -214,10 +220,10 @@ def _vertex_policy_warning() -> None:
         print("⚠️  WARNING: Vertex AI credentials appear invalid")
         print(f"   Error: {e}")
         print()
-        print("   Full diagnosis:")
-        print("     python scripts/check_vertex_policy.py")
-        print("   Reconfigure:")
-        print("     bash scripts/setup_vertex_iam.sh")
+        print("   Try one of these:")
+        print("     gcloud auth application-default login")
+        print("     unset INFG_VERTEX_PROJECT to fall back to AI Studio")
+        print("   See README.md for supported setup instructions.")
         print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
         print()
 
@@ -743,6 +749,47 @@ def _call_gemini_text_mode(
     return response.text, usage
 
 
+def _call_openrouter_text_mode(
+    prompt: str, model: str, api_key: str
+) -> tuple[str, dict]:
+    """
+    Call OpenRouter chat completions API for HTML text output.
+    Returns (html_text, usage_dict).
+    """
+    resp = _requests_lib.post(
+        "https://openrouter.ai/api/v1/chat/completions",
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+        },
+        timeout=120,
+    )
+
+    # ── Status-first error handling (check before JSON parse) ──
+    if resp.status_code == 401:
+        print("❌  OpenRouter API key is invalid (401) — check INFG_OPENROUTER_API_KEY in your .env")
+        sys.exit(1)
+    if resp.status_code == 402:
+        print("❌  OpenRouter account has insufficient credits (402) — add credits at openrouter.ai/credits")
+        sys.exit(1)
+    if resp.status_code != 200:
+        print(f"❌  OpenRouter API error ({resp.status_code}): {resp.text[:200]}")
+        sys.exit(1)
+
+    data = resp.json()
+    html_text = data["choices"][0]["message"]["content"]
+    usage = data.get("usage", {})
+    return html_text, {
+        "input_tokens": usage.get("prompt_tokens", 0),
+        "output_tokens": usage.get("completion_tokens", 0),
+        "total_cost": usage.get("total_cost"),  # None in practice — not in chat completions response
+    }
+
+
 # ── HTML helpers ──────────────────────────────────────────────────────────────
 
 def _strip_fences(raw: str) -> str:
@@ -813,37 +860,43 @@ def generate_pretty(
     viz_type   : "architecture" | "dashboard"
     model_name : Gemini model identifier (default: gemini-3.1-flash-image-preview)
     """
-    if not _GENAI_OK:
-        print(
-            "❌  google-genai is not installed (required for pretty mode only).\n"
-            "   Install with: pip install -r requirements.txt\n"
-            "   Or just the SDK: pip install google-genai\n"
-            "\n"
-            "   Note: Core matplotlib generation (generate.py) works without any extra packages."
-        )
-        sys.exit(1)
-
-    # ── Build client with smart backend routing ────────────────────────────────
-    # AI-Studio-only models go to AI Studio; stable models go to Vertex AI.
-    client, backend = _build_genai_client(model_name)
-
-    # ── Detect icon mode (Gemini 2.5+ automatically gets brand logos) ─────────
-    use_icons = _supports_icons(model_name)
-    if use_icons:
-        maj, min_ = _gemini_version(model_name)
-        print(f"🎨  Icon mode: enabled (Gemini {maj}.{min_}+ detected — brand logos will be included)")
-
-    # ── Report which backend is active and check credentials ──────────────────
-    if backend == "vertex":
-        print(f"🌐  Backend: Vertex AI  (project={_VERTEX_PROJECT}, region={_VERTEX_LOCATION})")
-        _vertex_policy_warning()
+    # ── Provider-specific setup ────────────────────────────────────────────────
+    if llm_provider == "openrouter":
+        client = None
+        backend = None
+        use_icons = False
     else:
-        print("🔑  Backend: AI Studio (API key)")
+        if not _GENAI_OK:
+            print(
+                "❌  google-genai is not installed (required for pretty mode only).\n"
+                "   Install the SDK with: pip install google-genai\n"
+                "   Optional HTML screenshot support: pip install playwright && playwright install chromium\n"
+                "\n"
+                "   Note: Core matplotlib generation (generate.py) works without any extra packages."
+            )
+            sys.exit(1)
+
+        # ── Build client with smart backend routing ────────────────────────────────
+        # AI-Studio-only models go to AI Studio; stable models go to Vertex AI.
+        client, backend = _build_genai_client(model_name)
+
+        # ── Detect icon mode (Gemini 2.5+ automatically gets brand logos) ─────────
+        use_icons = _supports_icons(model_name)
+        if use_icons:
+            maj, min_ = _gemini_version(model_name)
+            print(f"🎨  Icon mode: enabled (Gemini {maj}.{min_}+ detected — brand logos will be included)")
+
+        # ── Report which backend is active and check credentials ──────────────────
+        if backend == "vertex":
+            print(f"🌐  Backend: Vertex AI  (project={_VERTEX_PROJECT}, region={_VERTEX_LOCATION})")
+            _vertex_policy_warning()
+        else:
+            print("🔑  Backend: AI Studio (API key)")
 
     out_path = Path(output)
 
-    # ── Image generation path (for *-image models) ────────────────────────────
-    if _is_image_model(model_name):
+    # ── Image generation path (for *-image models, Gemini only) ───────────────
+    if llm_provider != "openrouter" and _is_image_model(model_name):
         print(f"🎨  Calling {model_name} (image generation mode) …")
         prompt = _build_image_prompt(config, viz_type, use_icons=use_icons)
         try:
@@ -878,19 +931,53 @@ def generate_pretty(
             effective_model = llm_model or model_name
             raw_html, usage = _call_gemini_text_mode(prompt, client, effective_model)
         elif llm_provider == "openrouter":
-            print("🔧  OpenRouter text adapter coming in Phase 2 — set INFG_LLM_PROVIDER=gemini for now")
-            raise NotImplementedError("OpenRouter support coming in Phase 2")
+            # ── Requests library guard ──
+            if not _REQUESTS_OK:
+                print(
+                    "❌  requests is not installed (required for OpenRouter).\n"
+                    "   Install with: pip install requests"
+                )
+                sys.exit(1)
+
+            # ── Model format validation (must have provider/model slash) ──
+            effective_model = llm_model or _LLM_MODEL
+            if not effective_model:
+                print("❌  OpenRouter requires a model — set INFG_LLM_MODEL or pass --llm-model")
+                sys.exit(1)
+            if "/" not in effective_model:
+                print(
+                    f"❌  OpenRouter model must include provider prefix: "
+                    f"'openai/gpt-4o', got {effective_model!r}"
+                )
+                sys.exit(1)
+
+            # ── API key resolution (provider-specific > generic) ──
+            or_api_key = _OPENROUTER_API_KEY or _LLM_API_KEY
+            if not or_api_key:
+                print("❌  OpenRouter requires an API key — set INFG_OPENROUTER_API_KEY or INFG_LLM_API_KEY in your .env")
+                sys.exit(1)
+
+            print(f"🤖  Calling {effective_model} via OpenRouter …")
+            raw_html, or_usage = _call_openrouter_text_mode(prompt, effective_model, or_api_key)
         else:
             print(f"❌  Unknown LLM provider: {llm_provider!r}. Supported: gemini, openrouter")
             sys.exit(1)
-    except NotImplementedError:
-        raise
     except Exception as e:
         _handle_credential_error(e)
         raise
     html     = _strip_fences(raw_html)
 
-    print_cost_report(model_name, usage, backend)
+    # ── Cost report ──
+    if llm_provider == "openrouter":
+        print()
+        print(f"  Model:         {effective_model}")
+        print(f"  Input tokens:  {or_usage['input_tokens']}")
+        print(f"  Output tokens: {or_usage['output_tokens']}")
+        if or_usage.get("total_cost") is not None:
+            print(f"  Cost:          ${or_usage['total_cost']:.5f}")
+        print()
+    else:
+        print_cost_report(model_name, usage, backend)
 
     html_path = out_path.with_suffix(".html")
     html_path.parent.mkdir(parents=True, exist_ok=True)
