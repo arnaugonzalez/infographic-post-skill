@@ -297,7 +297,7 @@ python scripts/generate_pretty.py \
   --output pretty_kpis.html
 ```
 
-Change the Gemini model (default `gemini-2.5-flash-image`):
+Change the Gemini model (default `gemini-3.1-flash-image-preview`):
 ```bash
 # Best quality HTML output (works on Vertex AI)
 python scripts/generate_pretty.py --config arch.json --model gemini-2.5-pro --output pretty.html
@@ -332,7 +332,7 @@ Every invocation prints a cost breakdown immediately after generation:
 ┌──────────────────────────────────────────────┐
 │            ⚡ Gemini Generation Cost          │
 ├──────────────────────────────────────────────┤
-│  Model   gemini-2.5-flash-image              │
+│  Model   gemini-3.1-flash-image-preview      │
 ├──────────────────────────────────────────────┤
 │    Input      4,231 tok              $0.000317│
 │    Image(s)       1 img              $0.039000│
