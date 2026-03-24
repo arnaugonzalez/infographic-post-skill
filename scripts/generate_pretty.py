@@ -39,6 +39,7 @@ Available models (Feb 2026):
     gemini-2.0-flash                           (Vertex AI, HTML output, fast/cheap)
     gemini-2.0-flash-lite                      (Vertex AI, HTML output, cheapest)
 """
+from __future__ import annotations
 
 import argparse
 import io
@@ -55,12 +56,14 @@ _ENV_PATH  = _SKILL_DIR / ".env"
 
 # ── Security helper ───────────────────────────────────────────────────────────
 
-_KEY_PATTERN = re.compile(r"AIza[a-zA-Z0-9_-]{30,}")
-
 
 def _redact_key(text: str) -> str:
-    """Replace any embedded API key values with [REDACTED] before printing."""
-    return _KEY_PATTERN.sub("[REDACTED]", text)
+    """Replace embedded API key values with [REDACTED] before printing."""
+    # Google AI Studio keys (AIza prefix) — full redaction
+    text = re.sub(r"AIza[a-zA-Z0-9_-]{30,}", "[REDACTED]", text)
+    # OpenRouter keys (sk-or-v1- prefix) — retain prefix so users know which key leaked
+    text = re.sub(r"sk-or-v1-[a-zA-Z0-9_-]{30,}", "sk-or-v1-[REDACTED]", text)
+    return text
 
 
 def _handle_credential_error(exc: Exception) -> None:
@@ -147,6 +150,14 @@ try:
 except ImportError:
     _requests_lib = None
     _REQUESTS_OK = False
+
+# ── openai SDK — optional, deferred to v1.x ────────────────────────────────
+try:
+    import openai as _openai_lib   # pip install openai
+    _OPENAI_OK = True
+except ImportError:
+    _openai_lib = None
+    _OPENAI_OK = False
 
 # ── Vertex AI helpers ─────────────────────────────────────────────────────────
 
@@ -777,7 +788,7 @@ def _call_openrouter_text_mode(
         print("❌  OpenRouter account has insufficient credits (402) — add credits at openrouter.ai/credits")
         sys.exit(1)
     if resp.status_code != 200:
-        print(f"❌  OpenRouter API error ({resp.status_code}): {resp.text[:200]}")
+        print(f"❌  OpenRouter API error ({resp.status_code}): {_redact_key(resp.text[:200])}")
         sys.exit(1)
 
     data = resp.json()
