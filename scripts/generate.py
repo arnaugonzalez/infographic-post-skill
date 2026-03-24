@@ -5,8 +5,7 @@ Provides canvas setup, typography, color palettes, and layout primitives
 for building professional infographics with matplotlib.
 
 Usage:
-    python generate.py --layout dashboard --output out.png --width 1080 --height 1350 --dpi 150
-    python generate.py --layout vertical-story --output timeline.png
+    python3 generate.py --demo --output demo.png
 
 For custom data, import this module and use the InfographicCanvas class.
 """
@@ -383,11 +382,17 @@ class InfographicCanvas:
 
 
 # ---------------------------------------------------------------------------
-# CLI demo — run with: python generate.py --demo
+# CLI demo — run with: python3 generate.py --demo
 # ---------------------------------------------------------------------------
 
-def _demo():
-    canvas = InfographicCanvas(1080, 1350, dpi=150, palette="modern-blue")
+def _demo(
+    output: str = "demo_infographic.png",
+    width: int = 1080,
+    height: int = 1350,
+    dpi: int = 150,
+    palette: str = "modern-blue",
+):
+    canvas = InfographicCanvas(width, height, dpi=dpi, palette=palette)
     canvas.add_header(
         "Q3 Performance Report",
         subtitle="Key metrics for the period July – September 2024",
@@ -414,7 +419,7 @@ def _demo():
         height=0.21
     )
     canvas.add_callout(
-        "🎯  Enterprise segment grew 42% YoY — accelerate investment",
+        "Key insight: Enterprise segment grew 42% YoY; accelerate investment",
         top=0.27, height=0.05
     )
     canvas.add_process_flow(
@@ -424,14 +429,15 @@ def _demo():
         height=0.15
     )
     canvas.add_footer("© 2024 Acme Corp  |  Confidential")
-    canvas.save("demo_infographic.png")
+    canvas.save(output)
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Infographic generator")
-    parser.add_argument("--demo", action="store_true", help="Run built-in demo")
-    parser.add_argument("--layout", default="dashboard")
-    parser.add_argument("--output", default="infographic.png")
+    parser = argparse.ArgumentParser(
+        description="Infographic canvas demo and library entrypoint"
+    )
+    parser.add_argument("--demo", action="store_true", help="Render the built-in demo infographic")
+    parser.add_argument("--output", default="demo_infographic.png")
     parser.add_argument("--width", type=int, default=1080)
     parser.add_argument("--height", type=int, default=1350)
     parser.add_argument("--dpi", type=int, default=150)
@@ -440,8 +446,14 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.demo:
-        _demo()
+        _demo(
+            output=args.output,
+            width=args.width,
+            height=args.height,
+            dpi=args.dpi,
+            palette=args.palette,
+        )
     else:
         print("ℹ️  Import InfographicCanvas from this module to build custom infographics.")
         print(f"   Available palettes: {', '.join(PALETTES.keys())}")
-        print(f"   Run with --demo to generate a sample output.")
+        print("   Run with --demo to generate the sample output.")

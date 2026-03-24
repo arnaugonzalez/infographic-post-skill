@@ -1,307 +1,213 @@
 # Codebase Concerns
 
-**Analysis Date:** 2026-03-15
+**Analysis Date:** 2026-03-20
 
-## File I/O Error Handling
+## Tech Debt
 
-**Missing exception handling for JSON parsing:**
-- Issue: `generate_html.py` and `generate_linkedin_arch.py` use `json.load()` and `open()` with no error handling. If config files are malformed or missing, the entire script crashes without user-friendly errors.
-- Files: `scripts/generate_html.py:386-387`, `scripts/generate_linkedin_arch.py:804-805`
-- Impact: Users cannot recover from invalid JSON configs or missing files. Silent failures possible.
-- Fix approach: Wrap JSON operations in try-except blocks with specific error messages. Validate JSON schema before processing. Add pre-flight checks for file existence.
+**Optional dependencies not enforced in runtime checks:**
+- Issue: `generate_pretty.py` imports `google.genai` and `google.auth` with try/except blocks, but only checks `_GENAI_OK` at entry point. Silent failures occur if imports succeed during initialization but credentials fail later.
+- Files: `scripts/generate_pretty.py` (lines 86-91, 149-156, 170, 672)
+- Impact: User can invoke the script, get past initial checks, then fail mid-execution with unclear error messages when Vertex AI or AI Studio credentials are invalid.
+- Fix approach: Add explicit credential validation before building the client. Validate environment variables (`INFG_API_KEY`, `INFG_VERTEX_PROJECT`) and use them to fail fast with a clear message at startup, not during generation.
 
-**Silent failure on file write:**
-- Issue: No error handling when writing output files. If disk is full, permissions denied, or path invalid, the process silently fails or partially writes files.
-- Files: `scripts/generate.py:375-379`, `scripts/generate_html.py:374-375`, `scripts/generate_linkedin_arch.py:739-744`
-- Impact: Corrupted output files, loss of work, confusing error messages from matplotlib.
-- Fix approach: Wrap all `savefig()` and `write_text()` calls in try-except. Validate output path writability before rendering. Check available disk space.
+**Playwright dependency handling is brittle:**
+- Issue: `generate_pretty.py` uses Playwright for HTML → PNG conversion (line 669-689). If Playwright is not installed or the browser launch fails, the function silently returns `None` and the caller continues without a screenshot.
+- Files: `scripts/generate_pretty.py` (lines 669-689)
+- Impact: Users expect a PNG output but silently get HTML-only output when Playwright is missing. No clear indication that the screenshot step failed.
+- Fix approach: Make Playwright a hard dependency or provide explicit user guidance before attempting to use it. Fail fast if the user requests PNG output but Playwright isn't available.
 
-**Unsafe file read with silently ignored errors:**
-- Issue: `parse_context.py:195` uses `errors="ignore"` on all file reads. This silently discards malformed UTF-8, potentially losing architecture information from source files.
-- Files: `scripts/parse_context.py:195, 189, 351`
-- Impact: Architecture diagrams may be incomplete or inaccurate if source files contain encoding issues.
-- Fix approach: Use `errors="replace"` instead to preserve indication of broken encoding. Warn user about encoding issues. Provide fallback encoding detection.
+**Loose error handling in file I/O:**
+- Issue: `parse_context.py` uses `errors="ignore"` in multiple file read operations (lines 438, 480, 720, 825). This silently discards encoding issues, potentially losing critical data without user awareness.
+- Files: `scripts/parse_context.py` (lines 438, 480, 720, 825)
+- Impact: Malformed CLAUDE.md or README files with non-UTF8 encoding may yield incomplete or incorrect architecture component extraction.
+- Fix approach: Use `errors="replace"` instead of `errors="ignore"`, log warnings when encoding issues are encountered, and provide user feedback about problematic files.
 
----
+**Assertion used for user input validation:**
+- Issue: `generate.py` line 260 uses `assert len(values) <= 5` to validate user input for donut charts. Assertions can be disabled with Python's `-O` flag.
+- Files: `scripts/generate.py` (line 260)
+- Impact: If someone runs with `python -O`, the constraint is silently skipped and the rendering will produce incorrect donut charts.
+- Fix approach: Replace with explicit `if` check and raise `ValueError` with a user-friendly message.
 
-## Input Validation & Bounds
+**No validation of config JSON schema:**
+- Issue: `generate_html.py` and `generate_linkedin_arch.py` accept JSON config files but do not validate their structure before use. Missing required fields silently defaults or crashes at rendering time.
+- Files: `scripts/generate_html.py` (line 386), `scripts/generate_linkedin_arch.py` (lines ~500+)
+- Impact: Malformed config files cause cryptic rendering errors (KeyError, TypeError) that don't explain what's wrong with the config.
+- Fix approach: Add a `validate_config()` function that checks for required keys and provides helpful error messages for missing fields.
 
-**No validation of canvas dimensions:**
-- Issue: Canvas width/height are passed directly from CLI args without bounds checking. Extremely large values could cause memory exhaustion. Negative or zero values cause undefined behavior.
-- Files: `scripts/generate.py:430-440`, `scripts/generate_linkedin_arch.py:792-800`
-- Impact: Resource exhaustion, crash, or silent failures. No meaningful error message.
-- Fix approach: Validate canvas dimensions (e.g., 100px - 10000px range). Set reasonable defaults. Warn if unusual values detected.
+## Known Bugs
 
-**Assertion instead of validation:**
-- Issue: `generate.py:260` uses `assert len(values) <= 5` to enforce constraint. Assertions can be disabled with Python `-O` flag, making the constraint optional at runtime.
-- Files: `scripts/generate.py:260`
-- Impact: Feature silently broken if run with optimization flags. No graceful error message.
-- Fix approach: Replace with proper validation raising ValueError with descriptive message.
+**Hard-coded Gemini model list becomes stale:**
+- Symptoms: The list of available models in `generate_pretty.py` docstring (lines 35-40) becomes outdated as Google releases new versions. Users following outdated documentation will get errors.
+- Files: `scripts/generate_pretty.py` (lines 35-40, 75-82)
+- Trigger: Every new Gemini release (typically monthly). Documentation says "Feb 2026" but code will be used beyond that date.
+- Workaround: Check live documentation or try the model name and handle 404 fallback (which the code does at line 743).
 
-**No bounds on KPI row and chart data:**
-- Issue: `add_kpi_row()`, `add_bar_chart()`, `add_donut()` accept arbitrary list lengths without validation. 100+ items would break layout calculations and produce garbled output.
-- Files: `scripts/generate.py:164-200, 206-244, 250-288`
-- Impact: Silently produces broken/unreadable infographics when given large datasets.
-- Fix approach: Validate input array lengths. Add `max_items` parameter. Document limits clearly.
+**Chart.js CDN may be unavailable or rate-limited:**
+- Symptoms: HTML infographics generated by `generate_html.py` load Chart.js from HTTPS CDN (line 22). If CDN is down or user has no internet, the chart rendering fails silently.
+- Files: `scripts/generate_html.py` (line 22)
+- Impact: Users viewing the HTML offline or in restricted network environments will see broken charts.
+- Workaround: Ship a vendored Chart.js library or provide fallback instructions.
 
----
-
-## Regex Complexity & Performance
-
-**Expensive regex patterns on large files:**
-- Issue: `parse_context.py:107-122` defines multiple overlapping regex patterns that are applied sequentially to entire file contents (potentially megabytes). No caching or early-exit optimization.
-- Files: `scripts/parse_context.py:101-137`
-- Impact: Slow architecture parsing on large projects. Potential for cascading regex timeouts on pathological input.
-- Fix approach: Compile regexes once at module load. Add timeout to re.finditer. Implement early exit if sufficient components found. Profile on real projects.
-
-**Substring redundancy detection is quadratic:**
-- Issue: `parse_context.py:309-313` compares every component name against every other for substring overlap. O(n²) complexity.
-- Files: `scripts/parse_context.py:301-317`
-- Impact: Scales poorly with >100 detected components (realistic in large projects). CPU spike during parsing.
-- Fix approach: Use trie or set-based approach for deduplication. Sort by name length first to reduce comparisons.
-
----
-
-## Matplotlib Resource Leaks
-
-**Potential figure memory retention:**
-- Issue: `generate_linkedin_arch.py:572` and `generate.py:108` create matplotlib figures. `plt.close(fig)` is called in some paths but `subplots()` may not be fully cleaned in error cases.
-- Files: `scripts/generate.py:375-379`, `scripts/generate_linkedin_arch.py:560-748`
-- Impact: Long-running processes (e.g., generating 100+ images in loop) may accumulate figure memory. Potential OOM on servers.
-- Fix approach: Use context managers for figure creation. Always close figures in finally blocks. Use `matplotlib.use('Agg')` explicitly for non-interactive backend.
-
-**No DPI validation:**
-- Issue: DPI values from CLI args are not validated. Extremely high DPI values (>1000) combined with large canvas cause enormous memory allocation.
-- Files: `scripts/generate.py:430-437`, `scripts/generate_linkedin_arch.py:36-38`
-- Impact: Memory exhaustion, OOM crashes, extremely slow rendering.
-- Fix approach: Clamp DPI to reasonable range (72-600). Warn if unusual values used.
-
----
-
-## Layout Edge Cases
-
-**Icon drawing assumes sufficient space:**
-- Issue: `generate_linkedin_arch.py:138-202, 525-553` draws icons and text without checking if the container box has minimum size. Very small boxes produce overlapping, garbled output.
-- Files: `scripts/generate_linkedin_arch.py:630-680`
-- Impact: Unreadable diagrams with many component groups (>9 layers). No graceful degradation.
-- Fix approach: Validate minimum box dimensions. Use collapsible sections or paginated layout for >9 groups. Add scaling logic.
-
-**Component chip layout crashes on empty items:**
-- Issue: `generate_linkedin_arch.py:671` iterates over items with hardcoded slice `items[:chip_cols * chip_rows]`. If items list is empty, no warning or special handling.
-- Files: `scripts/generate_linkedin_arch.py:647-677`
-- Impact: Layers with zero components produce empty boxes (confusing visually, breaks expected layout).
-- Fix approach: Skip rendering empty layers. Warn user. Validate items list before layout.
-
-**Process flow arrows overlap on single-step:**
-- Issue: `generate.py:348-353` unconditionally draws arrows between steps. With 1 step, no arrow should appear but code has `if i < n - 1` check that works but produces nothing.
-- Files: `scripts/generate.py:317-354`
-- Impact: Minor visual inconsistency with single-step flows. Low severity.
-- Fix approach: Already correct in code. Document expected behavior for edge case (1 step = no arrows).
-
----
-
-## Heuristic Brittleness
-
-**Component detection relies on name matching:**
-- Issue: `parse_context.py:28-53, 92-98` categorizes components by substring matching on name. "React" detects Frontend but "React Query" (data library) might be mis-categorized as Frontend when it's backend. Same for "Apollo" (GraphQL client vs server).
-- Files: `scripts/parse_context.py:92-98`
-- Impact: Incorrect architecture diagrams. Misleading layer groupings. Users see wrong categories without easy recourse.
-- Fix approach: Add user-facing correction mechanism (JSON config override). Expand heuristic rules with context (e.g., "React" in backend dir = backend). Document assumption.
-
-**Directory scanning misses non-standard layouts:**
-- Issue: `parse_context.py:140-181` scans top-level directories. Projects with flat structure (all in `src/`) or monorepo-style (services/api, services/web) are not detected correctly.
-- Files: `scripts/parse_context.py:140-181`
-- Impact: Incomplete architecture diagrams. Missing technologies not in top-level dirs.
-- Fix approach: Add recursive scanning with depth limit. Allow custom component hints via config. Check `package.json`/`pyproject.toml` for dependency-based detection.
-
-**CLAUDE.md parsing fragile:**
-- Issue: `parse_context.py:184-190` scans for CLAUDE.md in multiple locations but with hard-coded file names. User-created variations (claude.MD, .claude.md) not found.
-- Files: `scripts/parse_context.py:184-190`
-- Impact: Missing critical architecture info if file name doesn't match exactly.
-- Fix approach: Use case-insensitive matching. Check `.gitignore` for alternate names. Allow env var override for config file path.
-
----
-
-## Type Safety & Data Validation
-
-**Untyped configuration dictionaries:**
-- Issue: `generate_html.py:342`, `generate_linkedin_arch.py:560` accept `config: dict` with no validation of required keys. Missing keys cause KeyError crashes.
-- Files: `scripts/generate_html.py:342-377`, `scripts/generate_linkedin_arch.py:560-748`
-- Impact: Poor error messages. Crashes on invalid config instead of helpful validation error.
-- Fix approach: Use TypedDict or dataclass for config schema. Validate required keys on entry. Provide detailed schema documentation.
-
-**Color strings not validated:**
-- Issue: Hex color strings in config are used directly in matplotlib without validation. Invalid colors (wrong format, non-existent names) cause cryptic matplotlib errors.
-- Files: Entire color system in `scripts/generate.py`, `generate_linkedin_arch.py`
-- Impact: Confusing errors. Hard to debug color issues in custom palettes.
-- Fix approach: Add color validation function. Support multiple formats (hex, rgb, named). Provide helpful error on invalid colors.
-
----
-
-## Documentation & Specification
-
-**Palette color format undocumented:**
-- Issue: SKILL.md and code comments don't document the exact format for custom color palettes. Users trying to create custom palettes have no spec.
-- Files: `scripts/generate.py:29-66`, `generate_linkedin_arch.py:49-64`
-- Impact: No way to safely extend palettes. Users must reverse-engineer format from code.
-- Fix approach: Document palette format in SKILL.md. Provide JSON schema example. Add validation with clear error messages.
-
-**Layer grouping rules not documented:**
-- Issue: Architecture diagram layer ordering and grouping rules are implicit in `parse_context.py:204-211, 214-235` but not explained anywhere.
-- Files: `scripts/parse_context.py:204-235`
-- Impact: Users cannot predict or customize layer ordering. Surprising results from parse_context.py output.
-- Fix approach: Document LAYER_ORDER in SKILL.md. Explain grouping strategy. Allow order customization in config.
-
----
-
-## Missing Boundary Checks
-
-**String wrapping assumes minimum width:**
-- Issue: `generate.py:120`, `generate_linkedin_arch.py:81-82` use `textwrap.wrap()` with fixed width. Very narrow text containers wrap to unreadable single characters.
-- Files: `scripts/generate.py:116-123`, `scripts/generate_linkedin_arch.py:81-82, 195`
-- Impact: Unreadable text in small containers. No fallback.
-- Fix approach: Validate minimum text container width. Use dynamic wrapping width based on container size. Fall back to truncation if text too long.
-
-**Axis limits not validated:**
-- Issue: `generate.py:221-232` computes axis limits dynamically from data. If all data points are zero or identical, axis calculations produce degenerate ranges (0-0).
-- Files: `scripts/generate.py:206-244`
-- Impact: Bar chart with all zero values produces broken visualization.
-- Fix approach: Add minimum range padding. Detect zero/identical data and provide sensible defaults.
-
----
-
-## Testing & Quality Assurance
-
-**No test coverage:**
-- Issue: Project has no tests. All verification is manual or assumed to work.
-- Files: No test directory exists
-- Impact: Regressions undetected. Refactoring risky. Edge cases untested.
-- Fix approach: Add pytest suite. Create fixtures for common data patterns. Test all CLI entry points. Test error paths.
-
-**No example configs or test data:**
-- Issue: Users must write configs from scratch with no reference examples besides inline demo.
-- Files: `templates/example-config.json` exists but may be outdated or incomplete
-- Impact: High friction for new users. Errors in user configs go undetected.
-- Fix approach: Create comprehensive example configs. Add validation against JSON schema. Include test data for all layout types.
-
----
-
-## Performance Concerns
-
-**No progress indication for slow operations:**
-- Issue: Parsing large CLAUDE.md files (10,000+ lines) or rendering high-DPI images gives no feedback. User unsure if process is stuck.
-- Files: All scripts lack logging or progress bars
-- Impact: Poor user experience. Appear to hang.
-- Fix approach: Add verbose logging. Use tqdm for progress. Log processing steps.
-
-**Regex compilation at runtime:**
-- Issue: Regexes in `parse_context.py:107-122` are compiled on every call to `extract_components_from_text()`. Should be module-level constants.
-- Files: `scripts/parse_context.py:101-137`
-- Impact: Unnecessary recompilation. Slower parsing of large files.
-- Fix approach: Compile all regexes once at module import. Store in module constants.
-
----
+**Icon rendering assumes matplotlib primitives always succeed:**
+- Symptoms: `generate_linkedin_arch.py` draws icons using Matplotlib patches (lines ~400-650). If a group label doesn't match known styles, icon drawing may skip or misalign without warnings.
+- Files: `scripts/generate_linkedin_arch.py` (lines ~400-650)
+- Impact: Some edge-case group labels produce diagrams with missing or misaligned icons.
+- Workaround: Test with custom group names or use the predefined style list from SKILL.md.
 
 ## Security Considerations
 
-**Path traversal via output path:**
-- Issue: Output file paths from CLI args are passed directly to `Path()` without validation. User could specify `../../sensitive.png` to write outside intended directory.
-- Files: `scripts/generate.py:375-376`, `generate_html.py:374-375`, `generate_linkedin_arch.py:739`
-- Impact: Low risk in local use. Higher risk if exposed as API. Could overwrite arbitrary files.
-- Fix approach: Validate output paths. Restrict to safe directory. Use `Path.resolve()` and check against allowed base paths.
+**Credentials in .env are readable from repository:**
+- Risk: `.env` file may contain `INFG_API_KEY` (Gemini API key) or `INFG_VERTEX_PROJECT` (GCP project ID). If committed to git, credentials leak.
+- Files: `.env` (if present; not committed by default, but possible user error)
+- Current mitigation: `.gitignore` should exclude `.env` files. SKILL.md mentions this is a configuration file.
+- Recommendations: (1) Add explicit `.env` to `.gitignore`. (2) Document that API keys must never be committed. (3) Consider adding a pre-commit hook to prevent accidental secrets commits.
 
-**Unescaped text in HTML output:**
-- Issue: `generate_html.py:369` directly embeds user-provided config JSON in HTML without escaping. If config contains HTML/JS, could cause injection.
-- Files: `scripts/generate_html.py:365-371`
-- Impact: XSS risk if HTML shared or embedded in untrusted context.
-- Fix approach: Use proper JSON encoding. Escape all user-provided text. Use templating engine with auto-escaping.
+**No input sanitization in user-supplied text fields:**
+- Risk: `generate_pretty.py` and other scripts accept user text (titles, subtitles, author names) that are interpolated into HTML templates and prompts without escaping.
+- Files: `scripts/generate_html.py` (line 365-372), `scripts/generate_pretty.py` (lines 839-844)
+- Current mitigation: Text is interpolated into HTML context, not a SQL query or shell command. XSS risk in the generated HTML is low (it's a local file). However, if the HTML is served over HTTP, XSS becomes a risk.
+- Recommendations: Use HTML escaping for user-supplied text in `generate_html.py` templates. Example: use `html.escape()` on titles/labels.
 
-**Command injection via CLAUDE.md paths:**
-- Issue: While not exploited here, if any future features shell-exec file paths from CLAUDE.md, arbitrary code execution risk exists.
-- Files: `scripts/parse_context.py:186`
-- Impact: Low current risk. Architectural vulnerability for future.
-- Fix approach: Document security assumptions. Never exec file paths. Use pathlib exclusively. Validate all external input.
+**Gemini API key may be logged or leaked in error messages:**
+- Risk: If a Gemini API call fails, the exception may include the full request payload, which could contain the API key in the Authorization header.
+- Files: `scripts/generate_pretty.py` (lines 740-748)
+- Current mitigation: Exception handling catches and re-raises (line 748), but may not strip sensitive headers.
+- Recommendations: Wrap API calls in try/except and log only the error message, not the full exception payload. Example: `except Exception as e: print(f"API error: {str(e)}", file=sys.stderr); raise RuntimeError("Generation failed") from None`.
 
----
+## Performance Bottlenecks
 
-## Dependencies & Configuration
+**Large CLAUDE.md files parsed entirely into memory:**
+- Problem: `parse_context.py` reads CLAUDE.md files without size limits. Very large (>10MB) documentation files will cause memory spikes.
+- Files: `scripts/parse_context.py` (line 326, 718-723)
+- Cause: `_read_safe()` reads the entire file (capped at 80_000 bytes for CLAUDE.md, but still large), and regex operations (`re.finditer()`) process the entire string.
+- Improvement path: (1) Increase cap to 1MB for CLAUDE.md. (2) Use streaming regex or line-by-line parsing for architecture diagram extraction. (3) Cache results to `.planning/` to avoid re-parsing on every run.
 
-**No explicit Python version requirement:**
-- Issue: `SKILL.md` specifies `python: ">=3.8"` but code uses Python 3.10+ features (e.g., `str | None` type union syntax in `generate.py:95`).
-- Files: `SKILL.md:17`, `scripts/generate.py:95`
-- Impact: Fails on Python 3.8/3.9. No clear error message about version incompatibility.
-- Fix approach: Update version requirement to `>=3.10`. Use `from __future__ import annotations` for compatibility. Test on minimum version.
+**Regex patterns compiled on every invocation:**
+- Problem: `TECH_PATTERNS` list in `parse_context.py` (lines 144-186) contains raw regex strings that are compiled for each file read. With 20+ patterns and multiple files, this is wasteful.
+- Files: `scripts/parse_context.py` (lines 144-186, 293-300)
+- Cause: `re.finditer(pattern, text, ...)` compiles the pattern each time. Should pre-compile at module load.
+- Improvement path: Pre-compile all patterns at module initialization: `TECH_PATTERNS = [re.compile(p) for p in [r'...', r'...', ...]]`. Update extraction function to use `.finditer()` directly.
 
-**Missing or implicit dependency versions:**
-- Issue: SKILL.md specifies pip dependencies but no version pins. `matplotlib>=3.7`, `Pillow>=10.0` could change behavior between patch versions.
-- Files: `SKILL.md:19-21`
-- Impact: Non-reproducible renders across runs. Matplotlib API changes break code. Security updates introduce bugs.
-- Fix approach: Create `requirements.txt` with pinned versions. Test against minimum versions. Use `pip-tools` for lock file.
-
----
-
-## Known Bugs & Unexpected Behavior
-
-**Hard-coded DPI mismatch:**
-- Issue: `generate_linkedin_arch.py:36-38` hardcodes 1080x1080px @ 150dpi for LinkedIn. But final savefig uses `bbox_inches=None` which may not preserve exact dimensions. Comment at line 740-741 mentions this was fixed but worth re-verifying.
-- Files: `scripts/generate_linkedin_arch.py:36-38, 740-743`
-- Impact: LinkedIn diagrams may be off-size by a few pixels. Could affect feed display.
-- Fix approach: Test actual output dimensions. Document DPI behavior. Consider `bbox_inches="tight"` with size verification.
-
-**Process flow step calculation unclear:**
-- Issue: `generate.py:332-333` has redundant calculation: `cx = (i + 0.5) * step_w / step_w * (n / n)` then overwrites with `cx = (i + 0.5) / n`. First line is dead code.
-- Files: `scripts/generate.py:332-333`
-- Impact: Code quality. Confusing for maintainers. May indicate incomplete refactor.
-- Fix approach: Remove dead line. Clarify step positioning logic.
-
----
-
-## Scalability Limits
-
-**Component deduplication O(n²) complexity:**
-- Issue: See "Substring redundancy detection" above. Architecture parsing becomes slow with 100+ components.
-- Files: `scripts/parse_context.py:301-317`
-- Impact: Slow on large monorepos with many services.
-- Fix approach: Implement set-based deduplication. Add performance test.
-
-**Grid layout assumes ≤9 groups:**
-- Issue: `generate_linkedin_arch.py:100-110` uses fixed 3x3 grid (max 9 groups). Projects with 10+ component layers break layout.
-- Files: `scripts/generate_linkedin_arch.py:85-131`
-- Impact: Cannot visualize large architectures. Users must manually merge layers.
-- Fix approach: Implement pagination or scrollable layout. Support 4x4+ grids. Add validation with helpful error.
-
----
+**Donut chart legend calculation is O(n²):**
+- Problem: `generate.py` creates legend entries by iterating over labels and values (lines 276-282). For large datasets (>100 categories), this is slow, though rare in infographic use.
+- Files: `scripts/generate.py` (lines 276-282)
+- Cause: Nested loops (implicitly, via zip + manual calculation).
+- Improvement path: This is a low-priority optimization since infographics rarely have >10 categories. If needed, cache the calculation result.
 
 ## Fragile Areas
 
-**Color palette matching is fuzzy:**
-- Issue: `generate_linkedin_arch.py:69-74` uses substring matching to find palette colors. "Backend" matches "Backend / API" but "Backend" alone won't match custom label "Backend Service".
-- Files: `scripts/generate_linkedin_arch.py:69-74`
-- Impact: Custom layer names fall back to default color. No visual distinction.
-- Fix approach: Use exact category key matching. Provide explicit color assignment in config. Document naming conventions.
+**Architecture diagram layout is tightly coupled to layer count:**
+- Files: `scripts/generate_linkedin_arch.py` (lines 85-130)
+- Why fragile: The `compute_layout()` function assumes a 3×3 grid and has hardcoded row/column counts. Adding support for >9 layers requires refactoring the entire layout logic. The code caps at 9 groups (line 659 in parse_context.py), but the layout function doesn't gracefully handle edge cases (e.g., 1 layer, 10 layers).
+- Safe modification: (1) Add a test suite for layout computation with 1, 2, 3, 6, 9, 10 layers. (2) Parameterize grid dimensions as constants. (3) Add explicit bounds checking in `compute_layout()`.
+- Test coverage: No unit tests for layout computation exist.
 
-**Icon drawing function resolution:**
-- Issue: `generate_linkedin_arch.py:525-553` attempts fuzzy category-to-icon matching. Can fail to find correct icon if category strings don't match expected format.
-- Files: `scripts/generate_linkedin_arch.py:525-553`
-- Impact: Wrong icons rendered. Defaults to generic diamond. Confusing diagrams.
-- Fix approach: Use explicit category key enum. Pre-compile icon function map. Add logging for icon mismatches.
+**Color palette mapping is string-based fuzzy matching:**
+- Files: `scripts/generate_linkedin_arch.py` (lines 69-74)
+- Why fragile: The `get_style()` function uses string containment to match group labels to colors. Ambiguous labels (e.g., "API" matches both "Backend / API" and "Authentication API") will produce incorrect colors.
+- Safe modification: (1) Use exact matching with fallback to "Other" instead of fuzzy matching. (2) Add a user-provided mapping layer in the config. (3) Log warnings when a fuzzy match occurs.
+- Test coverage: No tests for edge cases like "API Backend", "Backend API", etc.
+
+**Matplotlib figure lifecycle is manual:**
+- Files: `scripts/generate.py` (line 379), `scripts/generate_linkedin_arch.py` (line 744)
+- Why fragile: Both scripts manually call `plt.close(fig)` to clean up matplotlib figures. If an exception occurs before the close call, figures leak memory in long-running processes. If matplotlib imports change, the API may shift.
+- Safe modification: (1) Use context managers for figure creation: `with plt.figure() as fig:`. (2) Add try/finally blocks to ensure cleanup. (3) Test with large batch generation (100+ images) to verify no memory leaks.
+- Test coverage: No memory leak tests.
+
+**HTML template uses string .format() with user data:**
+- Files: `scripts/generate_html.py` (lines 365-372)
+- Why fragile: User-supplied text (title, author, subtitle) is interpolated directly into the HTML template. If a user provides `{something}` in their title, it will be treated as a format string and may cause KeyError.
+- Safe modification: Use a templating library (e.g., Jinja2) or escape all user text before interpolation.
+- Test coverage: No fuzz testing with malicious user input.
+
+## Scaling Limits
+
+**Single PNG export is limited to 1080×1920 pixels:**
+- Current capacity: Designed for LinkedIn square (1080×1080) and Instagram story (1080×1920) formats.
+- Limit: DPI is hardcoded to 150. High-DPI (300+ DPI) output for print breaks the coordinate system.
+- Scaling path: Add `--dpi` parameter to all infographic generators. Adjust coordinate math to be DPI-aware. Test with 300 DPI and verify text sizes remain legible.
+
+**Chart.js embedded in HTML has no data size limit:**
+- Current capacity: HTML infographics embed the full config JSON inline (line 369 in generate_html.py).
+- Limit: For datasets with >10,000 data points, the HTML file becomes >5MB and browsers slow down.
+- Scaling path: Implement server-side data aggregation or pagination. Provide a `--max-points` parameter that downsamples large datasets.
+
+**Architecture diagram components are capped at 9 groups:**
+- Current capacity: Hard limit of 3×3 grid (line 659 in parse_context.py).
+- Limit: Systems with >9 architectural layers require manual merging or separate diagrams.
+- Scaling path: Implement a 4×4 grid or auto-wrapping rows. Test with 12, 16, 20+ groups to verify layout stability.
+
+## Dependencies at Risk
+
+**Google Gemini API models are in flux (Feb 2026 snapshot):**
+- Risk: The list of available models (generate_pretty.py lines 35-40) changes frequently. Model names, capabilities, and pricing shift monthly. Code written against Feb 2026 models will be outdated within 6 months.
+- Impact: Users following documentation will hit 404 errors or unexpected model behavior.
+- Migration plan: (1) Add a `--list-models` flag to query available models at runtime. (2) Use the latest stable model as default, not a preview model. (3) Add version detection and automatic fallback logic (already partially implemented at line 743).
+
+**matplotlib is a heavy dependency with platform-specific quirks:**
+- Risk: Matplotlib's rendering backend (TkAgg, Agg, etc.) varies by OS. Linux systems without X11 often have issues. Some environments lack libpng or freetype, causing import failures.
+- Impact: Infographic generation fails silently on servers without full GUI libraries installed.
+- Migration plan: (1) Test on headless Linux (e.g., Docker). (2) Explicitly set backend to "Agg" (non-interactive) before importing pyplot. (3) Consider moving to Pillow (PIL) for 2D rendering instead of matplotlib.
+
+**playwright is optional but silent failures occur:**
+- Risk: Playwright for HTML → PNG is optional (returns `None` if missing). Users don't know they need it until runtime.
+- Impact: Feature degradation without warning.
+- Migration plan: (1) Make it a required dependency for HTML output or explicitly optional with clear guidance. (2) Add a `--require-playwright` flag. (3) Document Playwright installation requirements upfront.
+
+## Missing Critical Features
+
+**No batch processing mode:**
+- Problem: Scripts process one file at a time. Users with 100+ architecture diagrams must invoke the script 100 times.
+- Blocks: Automation workflows, CI/CD integration.
+- Solution: Add a `--batch` mode that accepts a directory of CLAUDE.md files and generates diagrams for each. Example: `python parse_context.py --batch /path/to/projects --output-dir /path/to/diagrams`.
+
+**No version pinning for reproducible output:**
+- Problem: Matplotlib, Chart.js, and Gemini API versions change, affecting output. Generating the same infographic twice may produce different results.
+- Blocks: Archival, consistent branding.
+- Solution: Add a `--versions` flag that records all dependency versions in output metadata. Store version constraints in a lockfile (e.g., `requirements.lock`).
+
+**No color blindness validation tool:**
+- Problem: `references/design-principles.md` recommends colorblind-safe palettes, but no automated validation exists.
+- Blocks: Accessibility compliance.
+- Solution: Add a `--validate-a11y` flag that tests color contrast ratios (WCAG AA) and simulates colorblind vision (e.g., using the `colorspacious` library).
+
+**No offline mode for Chart.js:**
+- Problem: HTML infographics require CDN access. No fallback for offline or restricted-network environments.
+- Blocks: Enterprise/government use cases.
+- Solution: Add a `--vendored` flag that embeds Chart.js from a local copy instead of CDN.
+
+## Test Coverage Gaps
+
+**No unit tests for regex pattern extraction:**
+- What's not tested: The `extract_tech_from_text()` function in parse_context.py is complex (20+ regex patterns) but has no test coverage for edge cases.
+- Files: `scripts/parse_context.py` (lines 288-302, 309-330, 333-354)
+- Risk: Refactoring or adding patterns will silently break extraction for specific tech names.
+- Priority: **High** — This is the core parsing engine. A single regex bug breaks architecture detection for users.
+
+**No integration tests for end-to-end workflows:**
+- What's not tested: The full pipeline (CLAUDE.md → parse_context.py → generate_linkedin_arch.py → PNG) is never tested as a whole.
+- Files: All scripts (potential integration point is missing)
+- Risk: Individual scripts may pass in isolation but fail when chained together (e.g., JSON schema mismatches, incompatible output formats).
+- Priority: **High** — Users depend on this pipeline; a single breaking change in intermediate formats kills the workflow.
+
+**No fuzz testing for malformed input files:**
+- What's not tested: What happens when parse_context.py encounters corrupted CLAUDE.md, binary files, or files with unusual encodings?
+- Files: `scripts/parse_context.py` (file I/O, JSON parsing)
+- Risk: Crashes or silent data loss when processing real-world, messy documentation files.
+- Priority: **Medium** — Edge case, but impacts production use.
+
+**No visual regression tests for infographics:**
+- What's not tested: Do changes to `generate.py` or `generate_linkedin_arch.py` visually break rendered output?
+- Files: `scripts/generate.py`, `scripts/generate_linkedin_arch.py`
+- Risk: Silent visual changes (font sizes, colors, alignment) that degrade quality without detection.
+- Priority: **Medium** — Quality assurance for final output.
+
+**No performance benchmarks:**
+- What's not tested: Rendering 1000 infographics, parsing a 10MB CLAUDE.md, or running on a mobile device.
+- Files: All generation scripts
+- Risk: Unknown scaling behavior; users hit performance cliffs unexpectedly.
+- Priority: **Low** — Not a blocker for current use cases, but important for production scaling.
 
 ---
 
-## Missing Features Blocking Use
-
-**No way to customize component order in architecture diagram:**
-- Issue: Components are ordered by category (per LAYER_ORDER) but users cannot customize order.
-- Files: `scripts/parse_context.py:204-211`
-- Impact: Diagram layout may not match user's mental model. No way to show dependencies top-down vs left-right.
-- Fix approach: Add `layer_order` parameter to config. Allow user-defined category ordering.
-
-**No legend or label support in basic infographics:**
-- Issue: `generate.py` has no way to add a legend explaining color meaning or data unit.
-- Files: `scripts/generate.py` throughout
-- Impact: Ambiguous infographics. Readers don't understand color encoding.
-- Fix approach: Add `add_legend()` method. Support unit/key labels on charts.
-
----
-
-*Concerns audit: 2026-03-15*
+*Concerns audit: 2026-03-20*

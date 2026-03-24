@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Phase complete — ready for verification
-stopped_at: Completed 02-openrouter-text-adapter-02-01-PLAN.md
-last_updated: "2026-03-23T22:30:18.359Z"
+status: Milestone complete
+stopped_at: Completed 03-deploy-readiness-and-oss-hardening-03-01-PLAN.md
+last_updated: "2026-03-24T04:15:33.499Z"
 progress:
   total_phases: 3
-  completed_phases: 2
-  total_plans: 2
-  completed_plans: 2
+  completed_phases: 3
+  total_plans: 3
+  completed_plans: 3
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Core value:** Turn any data or context into a publication-ready infographic with one command.
-**Current focus:** Phase 02 — openrouter-text-adapter
+**Current focus:** Phase 03 — deploy-readiness-and-oss-hardening
 
 ## Current Position
 
-Phase: 02 (openrouter-text-adapter) — EXECUTING
-Plan: 1 of 1
+Phase: 03
+Plan: Not started
 
 ## Performance Metrics
 
@@ -48,6 +48,7 @@ Plan: 1 of 1
 *Updated after each plan completion*
 | Phase 01-provider-resolution-infrastructure P01 | 3 | 2 tasks | 2 files |
 | Phase 02-openrouter-text-adapter P01 | 252s | 2 tasks | 4 files |
+| Phase 03-deploy-readiness-and-oss-hardening P01 | 158s | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -62,6 +63,9 @@ Recent decisions affecting current work:
 - `_call_text_mode()` must be renamed to `_call_gemini_text_mode()` in Phase 1 to disambiguate
 - [Phase 01-provider-resolution-infrastructure]: Renamed _call_text_mode to _call_gemini_text_mode to make provider explicit; INFG_IMAGE_MODEL only applies when --model flag is at default; OpenRouter stub raises NotImplementedError with Phase 2 note
 - [Phase 02-openrouter-text-adapter]: Used requests library with _REQUESTS_OK guard mirroring _GENAI_OK pattern; model slash validation fires in dispatch branch before API call
+- [Phase 03-deploy-readiness-and-oss-hardening]: Inline re.sub() in _redact_key instead of compiled pattern — simplifies multi-pattern extension
+- [Phase 03-deploy-readiness-and-oss-hardening]: OpenRouter key redaction retains sk-or-v1- prefix so users can identify which key leaked
+- [Phase 03-deploy-readiness-and-oss-hardening]: Removed google-genai and playwright from SKILL.md required pip deps — they are optional
 
 ### Pending Todos
 
@@ -73,6 +77,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-23T22:30:18.353Z
-Stopped at: Completed 02-openrouter-text-adapter-02-01-PLAN.md
+Last session: 2026-03-24T04:11:18.900Z
+Stopped at: Completed 03-deploy-readiness-and-oss-hardening-03-01-PLAN.md
 Resume file: None

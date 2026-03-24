@@ -1,36 +1,38 @@
 # Codebase Structure
 
-**Analysis Date:** 2026-03-15
+**Analysis Date:** 2026-03-20
 
 ## Directory Layout
 
 ```
 infographic-skill/
-├── scripts/                  # Core generation engines
-│   ├── generate.py          # PNG infographic generator (matplotlib)
-│   ├── generate_html.py      # Interactive HTML generator (Chart.js)
-│   ├── generate_linkedin_arch.py  # LinkedIn diagram generator
-│   └── parse_context.py      # Architecture context parser
+├── scripts/                      # Core generation engines
+│   ├── generate.py              # PNG infographic generator (matplotlib)
+│   ├── generate_html.py          # Interactive HTML generator (Chart.js)
+│   ├── generate_linkedin_arch.py # LinkedIn diagram generator
+│   ├── generate_pretty.py        # AI-powered Gemini infographic generator
+│   └── parse_context.py          # Architecture context parser
 │
-├── references/              # Design knowledge base
-│   ├── design-principles.md  # Visual design rules
-│   └── chart-selection.md    # Chart type decision matrix
+├── references/                   # Design knowledge base
+│   ├── design-principles.md      # Visual design rules
+│   └── chart-selection.md        # Chart type decision matrix
 │
-├── templates/               # Example configs
-│   └── example-config.json   # Template for HTML infographic config
+├── templates/                    # Example configs
+│   └── example-config.json       # Template for HTML infographic config
 │
-├── SKILL.md                 # Skill definition & invocation guide
-├── ROADMAP.md               # Project milestones
+├── SKILL.md                      # Skill definition & invocation guide
+├── ROADMAP.md                    # Project milestones
+├── .gitignore                    # Git ignore file
 └── .planning/
-    └── codebase/            # Architecture documentation (this folder)
+    └── codebase/                 # Architecture documentation (this folder)
 ```
 
 ## Directory Purposes
 
 **scripts/:**
 - Purpose: Executable Python generation engines
-- Contains: Four CLI-callable modules + helper functions
-- Key files: All four .py files are independently executable
+- Contains: Five CLI-callable modules + helper functions
+- Key files: All .py files are independently executable (except parse_context.py can be imported)
 
 **references/:**
 - Purpose: Codified design knowledge and decision matrices
@@ -54,16 +56,19 @@ infographic-skill/
 - `scripts/generate_html.py`: Interactive HTML generation (CLI only)
 - `scripts/generate_linkedin_arch.py`: LinkedIn architecture diagrams (CLI only)
 - `scripts/parse_context.py`: Extract architecture from context (CLI only)
+- `scripts/generate_pretty.py`: AI-powered Gemini infographic generation (CLI only)
 
 **Configuration:**
 - `templates/example-config.json`: Template for HTML infographic structure
+- `.env`: Environment variables (INFG_API_KEY, INFG_VERTEX_PROJECT, INFG_VERTEX_LOCATION) - not committed
 - `SKILL.md`: Skill metadata (dependencies, allowed-tools, invocation patterns)
 - `ROADMAP.md`: Project status
 
 **Core Logic:**
 - `scripts/generate.py` lines 75–383: InfographicCanvas class (all section builders)
-- `scripts/parse_context.py` lines 28–99: Component detection heuristics
+- `scripts/parse_context.py` lines 84–135: Component detection heuristics
 - `scripts/generate_linkedin_arch.py` lines 49–75: Group styling and layout engine
+- `scripts/generate_pretty.py` lines 96–600: Gemini backend routing and generation
 
 **Design References:**
 - `references/design-principles.md`: Visual hierarchy, typography, color, whitespace
@@ -72,7 +77,7 @@ infographic-skill/
 ## Naming Conventions
 
 **Files:**
-- `generate*.py`: Output generators (PNG, HTML, LinkedIn)
+- `generate*.py`: Output generators (PNG, HTML, LinkedIn, AI)
 - `parse*.py`: Input/context parsers
 - `*-principles.md`: Design guidance
 - `*-selection.md`: Decision matrices
@@ -94,17 +99,20 @@ infographic-skill/
 - `extract_*()`: Extraction from text (extract_components_from_text)
 - `detect_*()`: Heuristic detection (detect_category)
 - `read_*()`: File I/O (read_claude_md, read_file)
+- `_build_*()`: Internal builders (e.g., _build_genai_client)
+- `_gen_*()`: Internal generation methods (e.g., _gen_image_direct)
 
 **Constants:**
 - `PALETTES`: Dict of color palettes
 - `GROUP_STYLES`: Dict of category styling
 - `CATEGORY_HINTS`: List of keywords per category
 - `LAYER_ORDER`: List of category ordering for output
+- `LINKEDIN_W`, `LINKEDIN_H`, `LINKEDIN_DPI`: LinkedIn format constants
 
 **Global settings:**
 - `DEFAULT_PALETTE`: Default color palette name
-- `LINKEDIN_W`, `LINKEDIN_H`, `LINKEDIN_DPI`: LinkedIn format constants
 - `TITLE_BG`, `TITLE_FG`, `FOOTER_BG`, `ACCENT`: Color constants for LinkedIn diagrams
+- `_VERTEX_PROJECT`, `_VERTEX_LOCATION`, `_USE_VERTEX`: Gemini backend configuration from .env
 
 ## Where to Add New Code
 
@@ -114,11 +122,11 @@ infographic-skill/
 - Reuse: PALETTES from generate.py, GROUP_STYLES from generate_linkedin_arch.py
 
 **New Architecture Category (e.g., "blockchain"):**
-- Update: `scripts/parse_context.py` CATEGORY_HINTS (line 28) — add keywords
-- Update: CATEGORY_COLORS (lines 55–69) — add hex colors
-- Update: CATEGORY_LABELS (lines 71–85) — add display name
-- Update: LAYER_ORDER (lines 204–211) if appropriate
-- Add icon: `scripts/generate_linkedin_arch.py` _draw_blockchain() function, add to _ICON_DRAW_FNS dict (lines 486–503)
+- Update: `scripts/parse_context.py` CATEGORY_HINTS (line 84) — add keywords
+- Update: CATEGORY_COLORS (lines 38–52) — add hex colors
+- Update: CATEGORY_LABELS (lines 54–68) — add display name
+- Update: LAYER_ORDER (lines 70–77) if appropriate
+- Add icon: `scripts/generate_linkedin_arch.py` _draw_blockchain() function, add to _ICON_DRAW_FNS dict
 
 **New Design Principle or Chart Rule:**
 - Add section: `references/design-principles.md` or `references/chart-selection.md`
@@ -133,6 +141,14 @@ infographic-skill/
   - Use: self.fig.add_axes(), ax.text(), matplotlib patches
   - Return: self (for chaining)
 
+**New AI Generation Mode (Gemini variant):**
+- Location: `scripts/generate_pretty.py` — add new model handler
+- Pattern: Follow _gen_image_direct() or _gen_via_html_to_png() as template (lines 300–500)
+  - Accept: genai Client, model name, prompt
+  - Handle: model-specific response format
+  - Return: PIL Image or HTML string
+  - Add: model name to MODEL_METADATA dict (line 760+)
+
 **New Test or Example:**
 - Demo: Update _demo() function in `scripts/generate.py` (lines 389–427)
 - Example config: Add variant to `templates/example-config.json`
@@ -140,10 +156,11 @@ infographic-skill/
 ## Special Directories
 
 **scripts/:**
-- Purpose: All four are independently executable scripts
+- Purpose: All five are independently executable scripts
 - Generated: No
 - Committed: Yes (all source)
 - Run directly: `python scripts/generate.py --demo`
+- Environment: generate_pretty.py reads .env for Gemini credentials
 
 **references/:**
 - Purpose: Static guidance; never generated
@@ -162,6 +179,12 @@ infographic-skill/
 - Generated: Yes (by GSD agents)
 - Committed: Yes (part of codebase analysis)
 - Structure: .planning/codebase/ for architecture docs, .planning/quick/ for task status
+
+**.env (not committed):**
+- Purpose: Runtime secrets for Gemini backends
+- Contains: INFG_API_KEY, INFG_VERTEX_PROJECT, INFG_VERTEX_LOCATION
+- Used by: generate_pretty.py (lines 51–68)
+- Pattern: Key=value format, loaded at startup via _load_dotenv()
 
 ## Invocation Patterns
 
@@ -200,6 +223,32 @@ python scripts/generate_linkedin_arch.py \
   --title "My App" --output arch.png
 ```
 
+**AI-Generated Infographic (Gemini Pretty Mode):**
+```bash
+# From architecture config
+python scripts/generate_pretty.py --config arch.json --output pretty.png
+
+# Quick inline (automatic backend detection)
+python scripts/generate_pretty.py \
+  --layers "Frontend:React|Backend:FastAPI|Database:PostgreSQL" \
+  --title "My App" --author "Your Name" --output pretty.png
+
+# Dashboard/KPI type
+python scripts/generate_pretty.py \
+  --text "Revenue $2.4M (+18%), NPS 72, Churn 2.1%" \
+  --type dashboard --title "Q3 Performance" --output pretty.png
+
+# With specific Gemini model
+python scripts/generate_pretty.py \
+  --config arch.json --model gemini-2.5-pro --output pretty.html
+```
+
+**Gemini Backend Selection (automatic):**
+- If `--model` starts with "gemini-3.1-flash-image-preview" → AI Studio (INFG_API_KEY)
+- If `--model` is other image model → Vertex AI (INFG_VERTEX_PROJECT)
+- If `--model` is text model → Vertex AI
+- If only one backend configured → route to that backend
+
 ---
 
-*Structure analysis: 2026-03-15*
+*Structure analysis: 2026-03-20*

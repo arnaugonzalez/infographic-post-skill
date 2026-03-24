@@ -55,7 +55,7 @@ Plans:
   2. Every env var consumed by `os.environ.get()` across all scripts has a corresponding entry in `.env.example`
   3. SKILL.md and README.md contain an OpenRouter setup section and correctly state Python 3.9+ as the minimum version
   4. Running the matplotlib offline path with the `openai` package uninstalled completes without `ImportError`
-**Plans:** 1 plan
+**Plans:** 0/1 plans executed
 Plans:
 - [ ] 03-01-PLAN.md — Extend key redaction, add openai import guard, update docs with OpenRouter setup and Python 3.9+, full test coverage
 
@@ -68,4 +68,4 @@ Phases execute in numeric order: 1 -> 2 -> 3
 |-------|----------------|--------|-----------|
 | 1. Provider Resolution Infrastructure | 1/1 | Complete    | 2026-03-23 |
 | 2. OpenRouter Text Adapter | 1/1 | Complete   | 2026-03-23 |
-| 3. Deploy Readiness and OSS Hardening | 0/1 | Not started | - |
+| 3. Deploy Readiness and OSS Hardening | 0/1 | Planned    |  |

@@ -1,22 +1,41 @@
 # External Integrations
 
-**Analysis Date:** 2026-03-15
+**Analysis Date:** 2026-03-20
 
 ## APIs & External Services
 
-**None.**
+**Google Gemini (Optional - Pretty Mode):**
+- Service: Multimodal AI for enhanced/AI-generated infographic creation
+- SDK/Client: `google-genai` package (pip install google-genai)
+- Auth methods:
+  - AI Studio: INFG_API_KEY environment variable (fallback)
+  - Vertex AI: Application Default Credentials (ADC) via GCP + INFG_VERTEX_PROJECT + INFG_VERTEX_LOCATION
+- Usage: `scripts/generate_pretty.py` (lines 87-123 for client routing, 135-150 for credential detection)
+- Models supported (Feb 2026):
+  - `gemini-3.1-flash-image-preview` (default, AI Studio only)
+  - `gemini-2.5-flash-image` (Vertex AI, native PNG)
+  - `gemini-2.5-pro` (Vertex AI, best quality)
+  - `gemini-2.0-flash` (Vertex AI, fast/cheap)
+  - `gemini-2.0-flash-lite` (Vertex AI, cheapest)
+- Cost: Usage-based; cost breakdown printed to stdout after generation
 
-This is a standalone infographic generation skill with no external API dependencies. All operations are file-based and local.
+**Google Cloud Vertex AI (Optional - AI Routing):**
+- Service: GCP-hosted Gemini models for cost optimization
+- Project ID: INFG_VERTEX_PROJECT environment variable
+- Location: INFG_VERTEX_LOCATION (defaults to us-central1)
+- Auth: Application Default Credentials (ADC) via `google-auth` package
+- Usage: Auto-routing in `scripts/generate_pretty.py` lines 96-132 (`_build_genai_client()`)
+- Fallback: Automatically routes to AI Studio if Vertex AI not configured
 
 ## Data Storage
 
 **Databases:**
-- None — skill is stateless and file-based
+- None — skill is stateless generation engine
 
 **File Storage:**
 - Local filesystem only
-  - Reads from: User-provided data files, `references/` design guides, `templates/` config examples
-  - Writes to: User-specified output paths (PNG, SVG, HTML)
+  - Reads from: User-provided data files, `references/` design guides, `templates/` config examples, project `CLAUDE.md`
+  - Writes to: User-specified output paths (PNG, SVG, HTML, JSON)
   - No persistent state or database
 
 **Caching:**
@@ -25,25 +44,33 @@ This is a standalone infographic generation skill with no external API dependenc
 ## Authentication & Identity
 
 **Auth Provider:**
-- None required
-- Skill operates in sandbox environment with file I/O only
+- Optional: Google OAuth 2.0 (for Vertex AI via ADC)
+- Optional: API Keys (for Google AI Studio)
 
-**Credentials:**
-- No credentials, API keys, or authentication tokens needed
+**When Not Required:**
+- All core generation functions (matplotlib-based PNG/SVG, Chart.js HTML) work offline with no auth
+- Auth only needed for `scripts/generate_pretty.py` when using Gemini models
+
+**Credentials Flow (generate_pretty.py):**
+1. Check INFG_API_KEY for AI Studio-only models → use AI Studio
+2. Check INFG_VERTEX_PROJECT → use Vertex AI with ADC
+3. Fallback to INFG_API_KEY → use AI Studio
+4. Exit with helpful error if none configured
 
 ## Monitoring & Observability
 
 **Error Tracking:**
-- None — errors logged to stdout/stderr only
+- None configured
 
 **Logs:**
-- Console output during generation (print statements)
-- Exit codes: 0 on success, 1 on error (argparse usage)
+- Console output via print statements
+- Cost breakdown printed by `generate_pretty.py` after generation
+- Credential warnings via `_vertex_policy_warning()` (lines 135-150)
 
 ## CI/CD & Deployment
 
 **Hosting:**
-- Deployed as Claude Code skill (no separate deployment)
+- Deployed as Claude Code skill (no separate hosting)
 
 **CI Pipeline:**
 - None — skill has no build pipeline or release process
@@ -53,71 +80,95 @@ This is a standalone infographic generation skill with no external API dependenc
 **Required env vars:**
 - None — all configuration via CLI arguments or config JSON files
 
-**Optional env vars:**
-- `MPLBACKEND=Agg` — Recommended when running in headless/CI environments (forces matplotlib to use non-interactive backend)
-- `MPLCONFIGDIR` — matplotlib config directory (defaults to `~/.config/matplotlib`)
+**Optional env vars (for pretty mode only):**
+- `INFG_API_KEY` - Google AI Studio API key (string)
+- `INFG_VERTEX_PROJECT` - GCP project ID for Vertex AI (string)
+- `INFG_VERTEX_LOCATION` - GCP region (string, defaults to us-central1)
+- `MPLBACKEND=Agg` - Recommended for headless/CI environments (matplotlib non-interactive backend)
+- `MPLCONFIGDIR` - matplotlib config directory (defaults to ~/.config/matplotlib)
 
 **Secrets location:**
-- No secrets used — skill requires no authentication
+- `.env` file in project root: `_SKILL_DIR / ".env"` (see `scripts/generate_pretty.py` line 54)
+- Loaded via custom `_load_dotenv()` (lines 57-68)
+- Environment variables override .env file values
+- Format: `KEY=value` (quotes stripped by parser)
 
 ## Webhooks & Callbacks
 
 **Incoming:**
-- None
+- None — skill is invoked synchronously via Claude
 
 **Outgoing:**
-- None
+- None — all outputs written to local filesystem or printed to stdout
 
 ## Data Flow
 
-### Typical Infographic Generation
-1. User provides data (text, CSV, JSON) or references existing CLAUDE.md
-2. Claude invokes `scripts/generate.py` or `scripts/generate_html.py` with config
-3. Script reads matplotlib defaults and palette constants
-4. Canvas is drawn in memory (no file I/O until final save)
-5. Output written to user-specified path
-6. Process exits with status
+### Core Infographic Generation (No API calls)
+1. User invokes `scripts/generate.py` with layout, data, output path
+2. InfographicCanvas class reads palette and typography
+3. Matplotlib renders directly to memory (PNG/SVG)
+4. Output written to local filesystem
+5. Exit status returned to caller
 
 ### LinkedIn Architecture Diagram Flow
-1. User provides context (project root, CLAUDE.md, or inline text)
-2. `scripts/parse_context.py` analyzes input and outputs `arch.json`
+1. `scripts/parse_context.py` analyzes CLAUDE.md or project structure (local files)
+2. Outputs `arch.json` with layer/component metadata (local file)
 3. `scripts/generate_linkedin_arch.py` reads `arch.json`
-4. Diagram rendered with matplotlib
+4. Matplotlib renders diagram (no API calls)
 5. PNG written to output path (1080×1080px @ 150dpi)
 
-### HTML Interactive Output
+### HTML Interactive Output (Local generation, CDN at view-time)
 1. User provides data config JSON
-2. `scripts/generate_html.py` reads config
-3. HTML template is filled with user data
-4. Chart.js library linked via CDN (HTTPS)
+2. `scripts/generate_html.py` reads config (local file)
+3. HTML template filled with user data
+4. Chart.js linked via CDN URL: `https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js`
 5. Self-contained HTML written to output path
+6. **Note:** Chart.js library is fetched by browser at view-time, not generation-time
 
-## Third-Party Dependencies (Build/Runtime)
+### AI-Generated Infographic (Pretty Mode - API calls)
+1. User provides config or data
+2. `scripts/generate_pretty.py` reads input (local files)
+3. Routes to Vertex AI or AI Studio based on env vars
+4. Sends generation request to Gemini API
+5. Receives PNG or HTML from API
+6. Writes output to local filesystem
+7. Prints cost breakdown and API usage
+
+## Third-Party Runtime Dependencies
 
 **matplotlib:**
 - Renders all vector graphics
 - Uses system font rendering
-- No network calls (local operation only)
+- No network calls during PNG/SVG generation (local operation only)
 - Backends: Agg (PNG/SVG default), TkAgg (interactive, if available)
 
-**Chart.js (HTML output only):**
-- Loaded from CDN: `https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js`
-- Inlined at build time to create self-contained HTML
+**Chart.js (HTML mode only):**
+- Loaded from CDN during HTML view, not generation
+- CDN URL: `https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js`
 - Browser requirement: ES6-compatible JavaScript engine
+- Fallback: Works offline if Chart.js is cached
 
-## No Network Dependencies
-
-- No API calls during generation
-- No license checks or version validation
-- No telemetry or analytics
-- No cloud service dependencies
+**google-genai (optional, pretty mode only):**
+- Makes HTTPS requests to Google Gemini API
+- Requires internet connectivity when using pretty mode
+- Handles image upload and generation polling
+- See: `scripts/generate_pretty.py` lines 150+ for model inference
 
 ## Offline Capability
 
-**Fully offline:**
+**Fully offline (core generation):**
 - PNG and SVG generation: 100% offline
-- HTML generation: Offline if Chart.js is pre-downloaded; otherwise requires CDN access at view-time (not generation-time)
+- Architecture diagram generation: 100% offline
+- Context parsing: 100% offline
+
+**Partially offline (HTML generation):**
+- HTML file generation: 100% offline
+- Chart.js library: Offline if cached in browser, otherwise CDN fetch at view-time
+
+**Online required:**
+- Pretty mode (Gemini): Requires active internet and valid API credentials
+- CDN resources: Only required if viewing generated HTML in browser
 
 ---
 
-*Integration audit: 2026-03-15*
+*Integration audit: 2026-03-20*

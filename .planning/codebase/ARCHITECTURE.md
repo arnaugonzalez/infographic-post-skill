@@ -1,17 +1,18 @@
 # Architecture
 
-**Analysis Date:** 2026-03-15
+**Analysis Date:** 2026-03-20
 
 ## Pattern Overview
 
-**Overall:** Modular, single-responsibility Python skill with layered generation pipeline
+**Overall:** Modular, single-responsibility Python skill with layered generation pipeline + AI-powered "pretty" mode
 
 **Key Characteristics:**
 - Canvas-first design — high-level abstraction for building infographic sections
 - Context parsing → JSON serialization → rendering pipeline
-- Three independent output generators (PNG, HTML, LinkedIn diagrams)
+- Multiple independent output generators (PNG, HTML, LinkedIn diagrams, AI-generated)
 - Reference-driven (design principles, chart selection guide)
 - CLI-driven execution with optional JSON config files
+- Optional Gemini backend for AI-powered generation
 
 ## Layers
 
@@ -27,13 +28,13 @@
 - Location: `scripts/parse_context.py`
 - Contains: Component detection heuristics, category mapping, layer grouping, connection inference
 - Depends on: File I/O (CLAUDE.md, project directories, README)
-- Used by: JSON generation for LinkedIn diagrams
+- Used by: JSON generation for LinkedIn diagrams, AI generation
 
 **Generation Engine Layer:**
-- Purpose: High-level canvas abstractions for building infographics
-- Location: `scripts/generate.py` (PNG/matplotlib), `scripts/generate_html.py` (HTML/Chart.js), `scripts/generate_linkedin_arch.py` (LinkedIn diagrams)
-- Contains: InfographicCanvas class with section builders (headers, KPIs, charts, callouts, process flows), color palettes, typography utilities
-- Depends on: matplotlib (PNG), Chart.js via CDN (HTML), matplotlib (LinkedIn diagrams)
+- Purpose: High-level canvas abstractions and AI-powered rendering
+- Location: `scripts/generate.py` (PNG/matplotlib), `scripts/generate_html.py` (HTML/Chart.js), `scripts/generate_linkedin_arch.py` (LinkedIn diagrams), `scripts/generate_pretty.py` (AI-generated infographics)
+- Contains: InfographicCanvas class with section builders (headers, KPIs, charts, callouts, process flows), color palettes, typography utilities, Gemini SDK integration
+- Depends on: matplotlib (PNG), Chart.js via CDN (HTML), matplotlib (LinkedIn diagrams), google-genai SDK (AI generation)
 - Used by: CLI entry points
 
 **Configuration & Templates:**
@@ -41,7 +42,7 @@
 - Location: `templates/example-config.json`
 - Contains: KPI cards, chart definitions, callout text, process steps
 - Depends on: JSON schema
-- Used by: generate_html.py for templating
+- Used by: generate_html.py for templating, generate_pretty.py for AI prompts
 
 **Documentation Layer:**
 - Purpose: Skill definition and roadmap
@@ -76,11 +77,21 @@
 4. generate_linkedin_arch.py renders: title bar, layer grid, group icons, component chips, dashed arrows, footer
 5. Output: 1080×1080px PNG optimized for LinkedIn
 
+**AI-Generated Infographic (Gemini Pretty Mode):**
+
+1. User provides: config JSON (arch.json, dashboard data) OR inline text + type
+2. generate_pretty.py detects backend: AI Studio (gemini-3.1-flash-image-preview) or Vertex AI (gemini-2.5-pro, gemini-2.5-flash-image)
+3. Builds prompt from config or text → sends to Gemini SDK
+4. Gemini generates: native PNG (image models) OR HTML (text models, converted to PNG via Playwright)
+5. Tracks costs (input/output tokens) → prints breakdown
+6. Output: PNG or HTML file with generated infographic
+
 **State Management:**
 
 - Stateless: Each generation is independent
 - No persistence between runs (configs are ephemeral)
 - Caches are implicit (matplotlib figure objects live for the duration of canvas operations)
+- Backend state: Gemini API keys loaded from .env at startup
 
 ## Key Abstractions
 
@@ -92,7 +103,7 @@
 
 **Component Detection System (parse_context.py):**
 - Purpose: Infer technology categories from text and directory names
-- Examples: CATEGORY_HINTS (lines 28–53), detect_category() (lines 92–98)
+- Examples: CATEGORY_HINTS (lines 84–125), detect_category() (lines 128–135)
 - Pattern: Fuzzy string matching on hints + regex patterns
 - Encapsulates: Architecture knowledge (what's backend vs. frontend vs. infrastructure)
 
@@ -101,6 +112,12 @@
 - Examples: _draw_frontend(), _draw_database(), _draw_cloud() (lines 230–393)
 - Pattern: Low-level matplotlib primitives (circles, rectangles, arcs)
 - Encapsulates: Visual library for architecture diagrams
+
+**Gemini Integration (generate_pretty.py):**
+- Purpose: Route requests to Google Gemini and handle AI-powered generation
+- Examples: _build_genai_client(), _gen_image_direct(), _gen_via_html_to_png() (lines 96–500+)
+- Pattern: Backend detection (AI Studio vs. Vertex AI) + model-specific rendering
+- Encapsulates: Cost tracking, error recovery, API integration
 
 **Color Palettes:**
 - Purpose: Consistency across outputs
@@ -130,6 +147,11 @@
 - Triggers: User calls with --root / --text / --file
 - Responsibilities: Extract components from context, group into layers, infer connections, output JSON
 
+**generate_pretty.py (AI-powered generation):**
+- Location: `scripts/generate_pretty.py` lines 600–846 (CLI entry points)
+- Triggers: User calls with --config arch.json OR --text / --type parameters
+- Responsibilities: Backend routing (AI Studio/Vertex), Gemini API calls, cost tracking, output management
+
 ## Error Handling
 
 **Strategy:** Fail-fast with descriptive messages. No silent fallbacks.
@@ -141,6 +163,8 @@
 - **Invalid JSON (generate_html.py):** Let json.load() raise JSONDecodeError; user must provide valid config
 - **Matplotlib failures:** Propagate; user will see matplotlib error messages
 - **Assertion errors (generate.py):** e.g., assert len(values) <= 5 for donuts (line 260)
+- **Gemini API errors (generate_pretty.py):** Catch genai exceptions, print diagnostic, exit with status code (lines 400–450)
+- **Missing .env (generate_pretty.py):** Falls back to empty string; errors occur on first API call if keys not set (lines 51–68)
 
 ## Cross-Cutting Concerns
 
@@ -151,8 +175,13 @@
 - Canvas width/height must be positive
 - Palette name must exist in PALETTES dict
 - Chart labels/values must have same length
+- Gemini model name must be known (generate_pretty.py line 760+)
+- Backend credentials (.env INFG_API_KEY or INFG_VERTEX_PROJECT) must be set before generation
 
-**Authentication:** Not applicable (no external APIs)
+**Authentication:**
+- generate_pretty.py requires: INFG_API_KEY (AI Studio) OR INFG_VERTEX_PROJECT (Vertex AI)
+- Loaded from .env file at module initialization (lines 51–68)
+- Backend routing is automatic based on available credentials
 
 **Color Safety:**
 - WCAG AA compliance built into palettes (generate.py lines 29–66)
@@ -161,4 +190,4 @@
 
 ---
 
-*Architecture analysis: 2026-03-15*
+*Architecture analysis: 2026-03-20*
