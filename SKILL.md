@@ -18,13 +18,12 @@ allowed-tools:
   - Write
   - Read
 dependencies:
-  python: ">=3.8"
+  python: ">=3.9"
   pip:
     - matplotlib>=3.7
     - Pillow>=10.0
     - numpy>=1.24
-    - google-genai>=1.0          # required for "pretty" mode (replaces deprecated google-generativeai)
-    - playwright                 # optional — auto-screenshots pretty HTML → PNG
+    - requests>=2.28
 ---
 
 # Infographic Skill
@@ -253,6 +252,29 @@ Para diagnóstico completo (4 checks: key file, credenciales, IAM, API):
 ```bash
 python scripts/check_vertex_policy.py
 ```
+
+### Optional setup: OpenRouter
+
+Use OpenRouter to route text generation through any model (Claude, GPT-4o, Llama, etc.).
+
+1. Get an API key at https://openrouter.ai/keys
+2. Set in `.env`:
+
+```text
+INFG_LLM_PROVIDER=openrouter
+INFG_LLM_MODEL=anthropic/claude-opus-4
+INFG_OPENROUTER_API_KEY=sk-or-v1-your-key-here
+```
+
+3. Run:
+
+```bash
+python3 scripts/generate_pretty.py \
+  --text "Your data here" \
+  --output pretty.html
+```
+
+Note: OpenRouter only supports the HTML-output path. Image generation always uses Gemini.
 
 ### Workflow
 

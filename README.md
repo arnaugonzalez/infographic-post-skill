@@ -11,7 +11,7 @@ Generate professional, publication-ready infographics from data, text, or projec
 
 ## Prerequisites
 
-- Python 3.8+
+- Python 3.9+
 - pip
 - [Claude Code](https://claude.ai/code) (to use as a skill)
 - (Optional) Google AI Studio API key or GCP project for pretty mode
@@ -57,6 +57,29 @@ Pretty mode uses Google Gemini for AI-generated designs. Core matplotlib feature
 2. Authenticate: `gcloud auth application-default login`
 3. Copy the env template: `cp .env.example .env`
 4. Set your project: `INFG_VERTEX_PROJECT=your-project-id`
+
+### Optional setup: OpenRouter
+
+Use OpenRouter to route text generation through any model (Claude, GPT-4o, Llama, etc.).
+
+1. Get an API key at [https://openrouter.ai/keys](https://openrouter.ai/keys)
+2. Set in `.env`:
+
+```text
+INFG_LLM_PROVIDER=openrouter
+INFG_LLM_MODEL=anthropic/claude-opus-4
+INFG_OPENROUTER_API_KEY=sk-or-v1-your-key-here
+```
+
+3. Run:
+
+```bash
+python3 scripts/generate_pretty.py \
+  --text "Your data here" \
+  --output pretty.html
+```
+
+Note: OpenRouter only supports the HTML-output path. Image generation always uses Gemini.
 
 ### Optional: HTML to PNG screenshots
 
