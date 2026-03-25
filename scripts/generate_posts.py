@@ -39,7 +39,7 @@ def _load_dotenv(path: Path) -> None:
 # Constants
 # ---------------------------------------------------------------------------
 
-SUPPORTED_LANGUAGES = ["en", "es", "fr", "de", "pt", "it"]
+SUPPORTED_LANGUAGES = ["en", "es", "fr", "de", "pt", "it", "ca"]
 
 LANG_NAMES = {
     "en": "English",
@@ -48,6 +48,7 @@ LANG_NAMES = {
     "de": "German",
     "pt": "Portuguese",
     "it": "Italian",
+    "ca": "Catalan",
 }
 
 TECH_SEPARATOR = "--- TECHNICAL POST ---"
@@ -199,13 +200,10 @@ def main() -> None:
     _load_dotenv(_ENV_PATH)
 
     api_key = os.environ.get("INFG_OPENROUTER_API_KEY", "").strip()
-    model = os.environ.get("INFG_LLM_MODEL", "").strip()
+    model = os.environ.get("INFG_LLM_MODEL", "google/gemini-2.0-flash-001").strip()
 
     if not api_key:
         print("Set INFG_OPENROUTER_API_KEY in .env or environment")
-        sys.exit(1)
-    if not model:
-        print("Set INFG_LLM_MODEL in .env or environment")
         sys.exit(1)
 
     report = read_codebase(args.directory)
