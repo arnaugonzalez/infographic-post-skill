@@ -45,6 +45,11 @@
 - **POSTS-EXT-01**: User can generate posts from arbitrary text/data input (not just codebase)
 - **POSTS-EXT-02**: Post generator supports platforms beyond LinkedIn (Twitter/X thread, newsletter)
 
+### Distribution
+
+- **DIST-01**: Skill is packaged as a PyPI package (`pyproject.toml`, entry points, versioning) so users can `pip install infographic-skill` instead of cloning the repo
+- **DIST-02**: CI workflow publishes to PyPI on tagged release
+
 ### Extended Provider Support
 
 - **EXTPROV-01**: User can configure a custom image generation provider beyond Google (e.g. DALL-E via OpenAI, Stability AI)
