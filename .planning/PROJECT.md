@@ -8,6 +8,16 @@ A Claude Code skill that generates professional infographics, LinkedIn architect
 
 Turn any data or context into a publication-ready infographic with one command — no design tools required.
 
+## Current Milestone: v1.1 — Codebase Intelligence and Content Pipeline
+
+**Goal:** Give the skill the ability to read and understand a codebase (architect+reviewer lens), generate two angle-differentiated LinkedIn posts (technical + business), a model-aware infographic with per-model prompt strategies, and ship a full OSS quality audit.
+
+**Target features:**
+- Codebase reader: architect+reviewer lens, skips build artifacts, deps, test files, config, binaries
+- LinkedIn post generator: 2 posts per run (technical for engineers + business for PMs/execs), user picks language at runtime
+- Model-aware infographic: prompt strategy adapts per image model to maximize output quality
+- OSS quality audit: test coverage + docs completeness + code quality, produces a report
+
 ## Shipped: v1.0 — Multi-Provider Model Support
 
 **Delivered:** Added configurable LLM provider (OpenRouter + any model) and hardened the skill for OSS publication — clean credentials, accurate docs, offline safety.
@@ -31,7 +41,10 @@ Turn any data or context into a publication-ready infographic with one command �
 
 ### Active
 
-*(none — v1.0 fully shipped; next requirements defined in v1.1 milestone)*
+- [ ] Codebase analysis pipeline (architect+reviewer lens, noise-filtered) — v1.1
+- [ ] LinkedIn post generator, 2 angles (technical + business), user-selected language — v1.1
+- [ ] Model-aware image prompt strategy (per-model prompt engineering for quality) — v1.1
+- [ ] OSS quality audit report (coverage + docs + code quality) — v1.1
 
 ### Out of Scope
 
@@ -73,4 +86,4 @@ Turn any data or context into a publication-ready infographic with one command �
 | Removed google-genai/playwright from required pip deps in SKILL.md | They are optional; required listing caused unnecessary installs | ✓ Good |
 
 ---
-*Last updated: 2026-03-25 — v1.0 milestone complete*
+*Last updated: 2026-03-25 — v1.1 milestone started: Codebase Intelligence and Content Pipeline*

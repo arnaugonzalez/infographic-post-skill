@@ -21,9 +21,12 @@ See: .planning/PROJECT.md (updated 2026-03-25)
 **Core value:** Turn any data or context into a publication-ready infographic with one command.
 **Current focus:** Planning next milestone (v1.1)
 
-## Shipped: v1.0
+## Current Position
 
-All 3 phases complete. Archived to `.planning/milestones/v1.0-ROADMAP.md`.
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-25 — Milestone v1.1 started
 
 ## Accumulated Context
 
@@ -38,9 +41,3 @@ None.
 ### Blockers/Concerns
 
 None.
-
-## Session Continuity
-
-Last session: 2026-03-25
-Stopped at: v1.0 milestone archived
-Resume file: None
