@@ -79,9 +79,9 @@ Plans:
   2. The audit output names specific functions missing docstrings and lists which of README, LICENSE, .env.example, CHANGELOG are absent — not just aggregate scores
   3. The audit output includes flake8 logical error counts and flags specific functions with high branch complexity via stdlib `ast`
   4. Running `oss_audit.py` writes a `QUALITY_AUDIT.md` file to the project root that can be committed as a snapshot of project health
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 Plans:
-- [ ] 07-01-PLAN.md — TDD: core audit functions — coverage, docstrings, OSS files, flake8, complexity (AUDIT-01, AUDIT-02, AUDIT-03)
+- [x] 07-01-PLAN.md — TDD: core audit functions — coverage, docstrings, OSS files, flake8, complexity (AUDIT-01, AUDIT-02, AUDIT-03)
 - [ ] 07-02-PLAN.md — Report renderer, CLI wiring, integration tests, QUALITY_AUDIT.md generation (AUDIT-01, AUDIT-02, AUDIT-03, AUDIT-04)
 
 ### Phase 8: Integration and SKILL.md
@@ -92,7 +92,9 @@ Plans:
   1. User can open SKILL.md and find copy-pasteable invocation examples for `read_codebase.py`, `generate_posts.py`, `oss_audit.py`, and the `generate_pretty.py --codebase` flag
   2. Every example command in SKILL.md runs without `unrecognized arguments` errors
   3. An end-to-end run of `generate_pretty.py --codebase <this repo>` and `generate_posts.py <this repo>` both complete successfully, confirming the full pipeline from codebase scan to output
-**Plans**: TBD
+**Plans:** 1 plan
+Plans:
+- [ ] 08-01-PLAN.md — Add Codebase Tools section to SKILL.md and verify example commands run
 
 ## Progress
 
@@ -104,5 +106,5 @@ Plans:
 | 4. Codebase Reader Foundation | v1.1 | 1/2 | In Progress|  |
 | 5. Prompt Registry and Codebase-to-Infographic | v1.1 | 0/2 | Planned    |  |
 | 6. LinkedIn Post Generator | v1.1 | 1/3 | Gap Closure | - |
-| 7. OSS Quality Audit | v1.1 | 0/2 | Planned | - |
-| 8. Integration and SKILL.md | v1.1 | 0/? | Not started | - |
+| 7. OSS Quality Audit | v1.1 | 1/2 | In Progress|  |
+| 8. Integration and SKILL.md | v1.1 | 0/1 | Planned | - |
