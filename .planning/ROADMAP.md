@@ -24,7 +24,7 @@ Archive: `.planning/milestones/v1.0-ROADMAP.md`
 - [ ] **Phase 5: Prompt Registry and Codebase-to-Infographic** - Model-aware prompt strategy registry and `--codebase` flag on `generate_pretty.py`
 - [ ] **Phase 6: LinkedIn Post Generator** - Two-angle post generator with runtime language selection and prompt-level angle differentiation (gap closure in progress)
 - [ ] **Phase 7: OSS Quality Audit** - Standalone audit script producing structured `QUALITY_AUDIT.md` report
-- [ ] **Phase 8: Integration and SKILL.md** - End-to-end smoke test and SKILL.md documentation updated to reflect all new capabilities
+- [x] **Phase 8: Integration and SKILL.md** - End-to-end smoke test and SKILL.md documentation updated to reflect all new capabilities (completed 2026-03-25)
 
 ## Phase Details
 
@@ -92,9 +92,9 @@ Plans:
   1. User can open SKILL.md and find copy-pasteable invocation examples for `read_codebase.py`, `generate_posts.py`, `oss_audit.py`, and the `generate_pretty.py --codebase` flag
   2. Every example command in SKILL.md runs without `unrecognized arguments` errors
   3. An end-to-end run of `generate_pretty.py --codebase <this repo>` and `generate_posts.py <this repo>` both complete successfully, confirming the full pipeline from codebase scan to output
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 Plans:
-- [ ] 08-01-PLAN.md — Add Codebase Tools section to SKILL.md and verify example commands run
+- [x] 08-01-PLAN.md — Add Codebase Tools section to SKILL.md and verify example commands run
 
 ## Progress
 
@@ -107,4 +107,4 @@ Plans:
 | 5. Prompt Registry and Codebase-to-Infographic | v1.1 | 0/2 | Planned    |  |
 | 6. LinkedIn Post Generator | v1.1 | 1/3 | Gap Closure | - |
 | 7. OSS Quality Audit | v1.1 | 1/2 | In Progress|  |
-| 8. Integration and SKILL.md | v1.1 | 0/1 | Planned | - |
+| 8. Integration and SKILL.md | v1.1 | 1/1 | Complete   | 2026-03-25 |

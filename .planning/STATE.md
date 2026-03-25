@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Codebase Intelligence and Content Pipeline
-status: Ready to plan
-last_updated: "2026-03-25T19:38:21.072Z"
+status: Phase complete — ready for verification
+last_updated: "2026-03-25T21:26:38.889Z"
 progress:
   total_phases: 5
-  completed_phases: 4
-  total_plans: 9
-  completed_plans: 9
+  completed_phases: 5
+  total_plans: 10
+  completed_plans: 10
 ---
 
 # Project State
@@ -18,12 +18,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-25)
 
 **Core value:** Turn any data or context into a publication-ready infographic with one command.
-**Current focus:** Phase 07 — oss-quality-audit
+**Current focus:** Phase 08 — integration-and-skill-md
 
 ## Current Position
 
-Phase: 8
-Plan: Not started
+Phase: 08 (integration-and-skill-md) — EXECUTING
+Plan: 1 of 1
 
 ## Performance Metrics
 
@@ -41,6 +41,7 @@ Plan: Not started
 | Phase 06-linkedin-post-generator P02 | 2min | 1 tasks | 2 files |
 | Phase 07-oss-quality-audit P01 | 2min | 2 tasks | 4 files |
 | Phase 07 P02 | 3min | 2 tasks | 3 files |
+| Phase 08-integration-and-skill-md P01 | 30min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -79,6 +80,8 @@ Key v1.1 decisions pre-loaded from research:
 - [Phase 07]: argparse --root defaults to '.' for ergonomic local use without arguments
 - [Phase 07]: _render uses list.append + join pattern for readable multi-section Markdown construction
 - [Phase 07]: Sorted glob in _collect_docstring_gaps/_collect_hotspots ensures deterministic test output
+- [Phase 08-integration-and-skill-md]: SKILL.md Codebase Tools section appended after v1.0 content; v1.0 lines unchanged
+- [Phase 08-integration-and-skill-md]: generate_pretty.py fixed to auto-detect openrouter when INFG_LLM_MODEL contains '/'; gemini-2.5-flash fallback for non-gemini image models
 
 ### Pending Todos
 
