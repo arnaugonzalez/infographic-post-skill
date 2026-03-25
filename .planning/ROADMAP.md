@@ -50,8 +50,10 @@ Plans:
   1. User can see `_PROMPT_STRATEGIES` dict in `generate_pretty.py` with model-family keys replacing the prior inline `if/elif` model-string checks
   2. Each registry entry has a `last_verified` date field; running `generate_pretty.py` with an unrecognized model family prints a warning and falls back gracefully rather than crashing
   3. User can run `generate_pretty.py --codebase <dir>` and receive an infographic generated from the codebase summary without modifying any existing CLI arguments
-**Plans**: TBD
-**UI hint**: yes
+**Plans:** 2 plans
+Plans:
+- [ ] 05-01-PLAN.md — TDD: prompt registry (_PROMPT_STRATEGIES, _model_family, _get_strategy) (PROMPTREG-01, PROMPTREG-02, PROMPTREG-03)
+- [ ] 05-02-PLAN.md — TDD: --codebase flag wiring and CodebaseReport-to-config mapping (PROMPTREG-01)
 
 ### Phase 6: LinkedIn Post Generator
 **Goal**: Users can generate two structurally distinct, ready-to-paste LinkedIn posts (technical and business angles) from a codebase in a single command, in their chosen language
@@ -66,7 +68,7 @@ Plans:
 
 ### Phase 7: OSS Quality Audit
 **Goal**: Users can run a single command to get a structured, file-level audit report of their Python project's test coverage, docstring coverage, file presence, and code quality issues
-**Depends on**: Nothing (fully standalone; no dependency on Phases 4–6)
+**Depends on**: Nothing (fully standalone; no dependency on Phases 4-6)
 **Requirements**: AUDIT-01, AUDIT-02, AUDIT-03, AUDIT-04
 **Success Criteria** (what must be TRUE):
   1. User can run `python oss_audit.py` and receive a test coverage percentage per module, sourced from `coverage run -m pytest`
@@ -93,7 +95,7 @@ Plans:
 | 2. OpenRouter Text Adapter | v1.0 | 1/1 | Complete | 2026-03-23 |
 | 3. Deploy Readiness and OSS Hardening | v1.0 | 1/1 | Complete | 2026-03-24 |
 | 4. Codebase Reader Foundation | v1.1 | 1/2 | In Progress|  |
-| 5. Prompt Registry and Codebase-to-Infographic | v1.1 | 0/? | Not started | - |
+| 5. Prompt Registry and Codebase-to-Infographic | v1.1 | 0/2 | Not started | - |
 | 6. LinkedIn Post Generator | v1.1 | 0/? | Not started | - |
 | 7. OSS Quality Audit | v1.1 | 0/? | Not started | - |
 | 8. Integration and SKILL.md | v1.1 | 0/? | Not started | - |
