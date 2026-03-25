@@ -397,6 +397,9 @@ The script prints `🎨  Icon mode: enabled` when active.
 | "for linkedin" | Standard `generate_linkedin_arch.py` |
 | "pretty" or "make pretty" | `generate_pretty.py` (Gemini mode) |
 | "pretty for linkedin" | `generate_pretty.py` → PNG (Gemini mode) |
+| "codebase infographic" or "pretty from codebase" | `generate_pretty.py --codebase <dir>` |
+| "linkedin posts from codebase" | `generate_posts.py <dir> --language en` |
+| "audit" or "quality audit" | `oss_audit.py --root <dir>` |
 
 ### Examples
 
@@ -625,3 +628,64 @@ automatically. No action needed from you — just capture the output and use it.
 
 **"Show me the versions"**
 → `python scripts/version_output.py --root . --list`
+
+---
+
+## Codebase Tools
+
+> **v1.1** — These commands read and analyse a local codebase to produce infographics,
+> LinkedIn posts, and quality audit reports.
+>
+> **Requires:** All commands below need `INFG_OPENROUTER_API_KEY` and `INFG_LLM_MODEL`
+> set in `.env` (see `.env.example`). The `--codebase` pretty-mode flag additionally
+> needs `INFG_API_KEY` (Google AI Studio) for image generation.
+
+### Generate LinkedIn posts from a codebase
+
+Generates two LinkedIn posts (technical angle for engineers + business angle
+for PMs/execs) from a codebase directory in a single command. User selects
+the output language at runtime.
+
+```bash
+python3 scripts/generate_posts.py . --language en
+```
+
+Output: two posts printed to stdout (`--- TECHNICAL POST ---` / `--- BUSINESS POST ---`) and saved to `linkedin_posts.md`.
+Requires: `INFG_OPENROUTER_API_KEY`, `INFG_LLM_MODEL`
+
+### Generate a pretty infographic from a codebase
+
+Scans a codebase directory, builds a structured summary, and generates a
+Gemini-powered architecture infographic — all in one command.
+
+```bash
+python3 scripts/generate_pretty.py --codebase . --output codebase.html
+```
+
+Output: `codebase.html` (+ auto `.png` via Playwright if installed).
+Requires: `INFG_API_KEY` (image generation), `INFG_OPENROUTER_API_KEY` + `INFG_LLM_MODEL` (text/HTML path)
+
+### Run an OSS quality audit
+
+Produces a structured audit report covering test coverage, docstring gaps,
+OSS baseline file presence, flake8 logical errors, and complexity hotspots.
+
+```bash
+python3 oss_audit.py --root .
+```
+
+Output: `QUALITY_AUDIT.md` written to the project root.
+Requires: `coverage` and `flake8` installed (`pip install -r requirements-audit.txt`)
+
+### Read a codebase (utility)
+
+Low-level utility used internally by `generate_posts.py` and
+`generate_pretty.py --codebase`. Can also be run standalone to inspect the
+filtered codebase summary as JSON.
+
+```bash
+python3 scripts/read_codebase.py . --budget 40000 -o report.json
+```
+
+Output: JSON `CodebaseReport` to stdout (or file with `-o`).
+Requires: no API keys (runs locally)
