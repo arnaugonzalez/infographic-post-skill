@@ -47,6 +47,7 @@ import json
 import os
 import re
 import sys
+from datetime import date
 from pathlib import Path
 
 # ── Locate skill root & load .env ────────────────────────────────────────────
@@ -281,10 +282,16 @@ def _gemini_version(model: str) -> tuple[int, int]:
     return (int(m.group(1)), int(m.group(2) or 0))
 
 
-def _supports_icons(model: str) -> bool:
-    """Return True for Gemini 2.5+ — strong enough visual/code generation for brand icons."""
-    major, minor = _gemini_version(model)
-    return major > 2 or (major == 2 and minor >= 5)
+def _model_family(model: str) -> str:
+    """Return the model family key for use with _PROMPT_STRATEGIES."""
+    name = model.lower().replace("models/", "")
+    if name.startswith("gemini"):
+        return "gemini"
+    if name.startswith("dall") or name.startswith("dall-e"):
+        return "dalle"
+    if name.startswith("stable-diffusion") or name.startswith("sd-"):
+        return "sd"
+    return name.split("-")[0]
 
 
 # ── Icon guides injected into prompts for Gemini 2.5+ ────────────────────────
@@ -386,6 +393,68 @@ FALLBACK RULE: If you cannot recall an exact SVG path, use an emoji instead:
   Kafka→📨  Node.js→💚  Supabase→⚡  Auth0→🔐  TypeScript→🔷  Angular→🔴
 Use emoji as a styled <span style="font-size:14px"> in place of the SVG element.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
+
+
+# ── Prompt registry — single source of truth for model-family prompt params ───
+
+_PROMPT_STRATEGIES: dict[str, dict] = {
+    "gemini": {
+        "supports_icons": True,
+        "context_window": 1_000_000,
+        "style_vocabulary": ["glassmorphism", "gradient", "dark-background"],
+        "prompt_fragments": {
+            "image_icon_guide": _IMAGE_ICON_GUIDE,
+            "html_icon_guide": _HTML_ICON_GUIDE,
+        },
+        "last_verified": "2026-03-25",
+    },
+    "dalle": {
+        "supports_icons": False,
+        "context_window": 4096,
+        "style_vocabulary": [],
+        "prompt_fragments": {},
+        "last_verified": "2026-03-25",
+    },
+    "sd": {
+        "supports_icons": False,
+        "context_window": 2048,
+        "style_vocabulary": [],
+        "prompt_fragments": {},
+        "last_verified": "2026-03-25",
+    },
+}
+
+
+def _get_strategy(model: str) -> dict:
+    """Return the prompt strategy dict for the given model string.
+
+    Falls back to the gemini strategy (with a warning) for unrecognized families.
+    """
+    family = _model_family(model)
+    if family not in _PROMPT_STRATEGIES:
+        print(f"\u26a0\ufe0f  Unrecognized model family '{family}' \u2014 falling back to gemini strategy.")
+        family = "gemini"
+    return _PROMPT_STRATEGIES[family]
+
+
+_STALE_THRESHOLD_DAYS = 90
+
+
+def _warn_if_stale(strategy: dict, family: str) -> None:
+    """Print a warning if the strategy's last_verified date is older than the stale threshold."""
+    lv = strategy.get("last_verified", "")
+    if not lv:
+        return
+    try:
+        verified = date.fromisoformat(lv)
+        age = (date.today() - verified).days
+        if age > _STALE_THRESHOLD_DAYS:
+            print(
+                f"\u26a0\ufe0f  Strategy for '{family}' was last verified {age} days ago ({lv}) "
+                f"\u2014 consider updating _PROMPT_STRATEGIES."
+            )
+    except ValueError:
+        pass
 
 
 def _lookup_pricing(model: str) -> tuple[float, float, float]:
@@ -891,8 +960,10 @@ def generate_pretty(
         # AI-Studio-only models go to AI Studio; stable models go to Vertex AI.
         client, backend = _build_genai_client(model_name)
 
-        # ── Detect icon mode (Gemini 2.5+ automatically gets brand logos) ─────────
-        use_icons = _supports_icons(model_name)
+        # ── Detect icon mode via prompt registry ──────────────────────────────────
+        strategy = _get_strategy(model_name)
+        _warn_if_stale(strategy, _model_family(model_name))
+        use_icons = strategy["supports_icons"]
         if use_icons:
             maj, min_ = _gemini_version(model_name)
             print(f"🎨  Icon mode: enabled (Gemini {maj}.{min_}+ detected — brand logos will be included)")
