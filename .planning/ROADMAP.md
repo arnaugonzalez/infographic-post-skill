@@ -62,9 +62,11 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. User can run `python generate_posts.py <dir>` and receive two clearly labeled posts (`--- TECHNICAL POST ---` / `--- BUSINESS POST ---`) in one command invocation
   2. User is prompted to select an output language at runtime; specifying `es` produces Spanish-language posts even when the codebase source code and comments are in English
-  3. Generated posts are formatted for LinkedIn: hook line present, no unfilled template placeholders, within the 800–1,600 character target range
+  3. Generated posts are formatted for LinkedIn: hook line present, no unfilled template placeholders, within the 800-1,600 character target range
   4. The technical post includes a concrete implementation detail and the business post leads with an outcome — the two posts are structurally distinct, not paraphrases of each other
-**Plans**: TBD
+**Plans:** 1 plan
+Plans:
+- [ ] 06-01-PLAN.md — TDD: generate_posts.py with dual-angle LLM calls, language enforcement, and character retry (POSTS-01, POSTS-02, POSTS-03, POSTS-04)
 
 ### Phase 7: OSS Quality Audit
 **Goal**: Users can run a single command to get a structured, file-level audit report of their Python project's test coverage, docstring coverage, file presence, and code quality issues
@@ -96,6 +98,6 @@ Plans:
 | 3. Deploy Readiness and OSS Hardening | v1.0 | 1/1 | Complete | 2026-03-24 |
 | 4. Codebase Reader Foundation | v1.1 | 1/2 | In Progress|  |
 | 5. Prompt Registry and Codebase-to-Infographic | v1.1 | 0/2 | Planned    |  |
-| 6. LinkedIn Post Generator | v1.1 | 0/? | Not started | - |
+| 6. LinkedIn Post Generator | v1.1 | 0/1 | Not started | - |
 | 7. OSS Quality Audit | v1.1 | 0/? | Not started | - |
 | 8. Integration and SKILL.md | v1.1 | 0/? | Not started | - |
