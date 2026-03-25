@@ -22,7 +22,7 @@ Archive: `.planning/milestones/v1.0-ROADMAP.md`
 
 - [ ] **Phase 4: Codebase Reader Foundation** - Noise-filtered directory reader with safety-first credential and token-budget guardrails
 - [ ] **Phase 5: Prompt Registry and Codebase-to-Infographic** - Model-aware prompt strategy registry and `--codebase` flag on `generate_pretty.py`
-- [ ] **Phase 6: LinkedIn Post Generator** - Two-angle post generator with runtime language selection and prompt-level angle differentiation
+- [x] **Phase 6: LinkedIn Post Generator** - Two-angle post generator with runtime language selection and prompt-level angle differentiation (completed 2026-03-25)
 - [ ] **Phase 7: OSS Quality Audit** - Standalone audit script producing structured `QUALITY_AUDIT.md` report
 - [ ] **Phase 8: Integration and SKILL.md** - End-to-end smoke test and SKILL.md documentation updated to reflect all new capabilities
 
@@ -64,9 +64,9 @@ Plans:
   2. User is prompted to select an output language at runtime; specifying `es` produces Spanish-language posts even when the codebase source code and comments are in English
   3. Generated posts are formatted for LinkedIn: hook line present, no unfilled template placeholders, within the 800-1,600 character target range
   4. The technical post includes a concrete implementation detail and the business post leads with an outcome — the two posts are structurally distinct, not paraphrases of each other
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 Plans:
-- [ ] 06-01-PLAN.md — TDD: generate_posts.py with dual-angle LLM calls, language enforcement, and character retry (POSTS-01, POSTS-02, POSTS-03, POSTS-04)
+- [x] 06-01-PLAN.md — TDD: generate_posts.py with dual-angle LLM calls, language enforcement, and character retry (POSTS-01, POSTS-02, POSTS-03, POSTS-04)
 
 ### Phase 7: OSS Quality Audit
 **Goal**: Users can run a single command to get a structured, file-level audit report of their Python project's test coverage, docstring coverage, file presence, and code quality issues
@@ -98,6 +98,6 @@ Plans:
 | 3. Deploy Readiness and OSS Hardening | v1.0 | 1/1 | Complete | 2026-03-24 |
 | 4. Codebase Reader Foundation | v1.1 | 1/2 | In Progress|  |
 | 5. Prompt Registry and Codebase-to-Infographic | v1.1 | 0/2 | Planned    |  |
-| 6. LinkedIn Post Generator | v1.1 | 0/1 | Not started | - |
+| 6. LinkedIn Post Generator | v1.1 | 1/1 | Complete   | 2026-03-25 |
 | 7. OSS Quality Audit | v1.1 | 0/? | Not started | - |
 | 8. Integration and SKILL.md | v1.1 | 0/? | Not started | - |

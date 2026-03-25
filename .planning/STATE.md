@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Codebase Intelligence and Content Pipeline
-status: Ready to plan
-last_updated: "2026-03-25T13:06:33.612Z"
+status: Phase complete — ready for verification
+last_updated: "2026-03-25T16:40:24.255Z"
 progress:
   total_phases: 5
-  completed_phases: 2
-  total_plans: 4
-  completed_plans: 4
+  completed_phases: 3
+  total_plans: 5
+  completed_plans: 5
 ---
 
 # Project State
@@ -18,12 +18,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-25)
 
 **Core value:** Turn any data or context into a publication-ready infographic with one command.
-**Current focus:** Phase 05 — prompt-registry-and-codebase-to-infographic
+**Current focus:** Phase 06 — linkedin-post-generator
 
 ## Current Position
 
-Phase: 6
-Plan: Not started
+Phase: 06 (linkedin-post-generator) — EXECUTING
+Plan: 1 of 1
 
 ## Performance Metrics
 
@@ -36,6 +36,7 @@ Plan: Not started
 | Phase 04 P02 | 274 | 2 tasks | 2 files |
 | Phase 05-prompt-registry-and-codebase-to-infographic P01 | 12 | 2 tasks | 2 files |
 | Phase 05-prompt-registry-and-codebase-to-infographic P02 | 4 | 2 tasks | 2 files |
+| Phase 06 P01 | 4 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -63,6 +64,8 @@ Key v1.1 decisions pre-loaded from research:
 - [Phase 05-prompt-registry-and-codebase-to-infographic]: D-05: viz_type always 'arch' for codebase infographics via _config_from_codebase_report returning (config, 'arch') tuple
 - [Phase 05-prompt-registry-and-codebase-to-infographic]: D-06: report['summary_text'] maps to config['description'] (not report['summary'])
 - [Phase 05-prompt-registry-and-codebase-to-infographic]: D-08: read_codebase imported lazily inside elif branch via existing sys.path pattern
+- [Phase 06]: System prompt sentence sets must be fully disjoint — using different phrasing per prompt for language enforcement and char target to avoid shared sentences between technical and business prompts
+- [Phase 06]: Language enforcement uses two distinct phrases per prompt (opening + closing) satisfying D-03 repetition without creating shared sentences between prompts
 
 ### Pending Todos
 

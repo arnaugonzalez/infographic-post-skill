@@ -15,10 +15,10 @@
 
 ### LinkedIn Post Generator (POSTS)
 
-- [ ] **POSTS-01**: User can generate two LinkedIn posts (technical angle for engineers + business angle for PMs/execs) from a codebase in one command
-- [ ] **POSTS-02**: User is prompted to select the output language at runtime before posts are generated
-- [ ] **POSTS-03**: Generated posts are formatted for LinkedIn (hook line, correct character length, ready-to-paste)
-- [ ] **POSTS-04**: Output language is enforced in the system prompt (not just the user turn) to prevent English drift when code context is English
+- [x] **POSTS-01**: User can generate two LinkedIn posts (technical angle for engineers + business angle for PMs/execs) from a codebase in one command
+- [x] **POSTS-02**: User is prompted to select the output language at runtime before posts are generated
+- [x] **POSTS-03**: Generated posts are formatted for LinkedIn (hook line, correct character length, ready-to-paste)
+- [x] **POSTS-04**: Output language is enforced in the system prompt (not just the user turn) to prevent English drift when code context is English
 
 ### Model-Aware Prompt Registry (PROMPTREG)
 
