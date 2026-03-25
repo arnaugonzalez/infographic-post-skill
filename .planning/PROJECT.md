@@ -2,28 +2,19 @@
 
 ## What This Is
 
-A Claude Code skill that generates professional infographics, LinkedIn architecture diagrams, and AI-powered "pretty mode" visuals. Built for engineers and PMs who want publication-quality graphics from structured data or free-form context — with Google Gemini as the default image model and a matplotlib fallback for offline use.
+A Claude Code skill that generates professional infographics, LinkedIn architecture diagrams, and AI-powered "pretty mode" visuals. Built for engineers and PMs who want publication-quality graphics from structured data or free-form context — with Google Gemini as the default image model, OpenRouter for any text LLM, and a matplotlib fallback for offline use.
 
 ## Core Value
 
 Turn any data or context into a publication-ready infographic with one command — no design tools required.
 
-## Current Milestone: v1.0 — Multi-Provider Model Support
+## Shipped: v1.0 — Multi-Provider Model Support
 
-**Goal:** Make the infographic skill production-ready for OSS deployment by adding configurable LLM and image model providers, with `gemini-3.1-flash-image-preview` as the hardened default and OpenRouter as the path to any LLM.
-
-**Target features:**
-- `gemini-3.1-flash-image-preview` hardened as the default image model
-- Configurable LLM provider + model via env var (swap text generation backend)
-- Configurable image model + API key (use any image GenAI model per invocation)
-- OpenRouter integration (OpenAI-compatible LLM provider for text tasks)
-- Deploy readiness audit (credentials, error messages, docs, .env.example)
+**Delivered:** Added configurable LLM provider (OpenRouter + any model) and hardened the skill for OSS publication — clean credentials, accurate docs, offline safety.
 
 ## Requirements
 
 ### Validated
-
-<!-- Shipped quick tasks — confirmed working -->
 
 - ✓ Matplotlib-based infographic canvas with palettes and layout primitives — quick tasks
 - ✓ LinkedIn architecture diagram generator (`generate_linkedin_arch.py`) — quick tasks
@@ -32,29 +23,33 @@ Turn any data or context into a publication-ready infographic with one command �
 - ✓ OSS foundations: MIT LICENSE, README.md, .env.example, requirements.txt — quick tasks
 - ✓ Version output manager (`scripts/version_output.py`) — quick tasks
 - ✓ HTML output path via Playwright for text models — quick tasks
+- ✓ Configurable LLM provider (env var to set provider + model for text generation) — v1.0
+- ✓ Configurable image model + API key per invocation or env — v1.0
+- ✓ OpenRouter integration (OpenAI-compatible API for LLM text tasks) — v1.0
+- ✓ `gemini-3.1-flash-image-preview` hardened as default with clear docs — v1.0
+- ✓ Deploy readiness: clean credentials, error guidance, .env.example complete — v1.0
 
 ### Active
 
-- ✓ Configurable LLM provider (env var to set provider + model for text generation) — Validated in Phase 1: Provider Resolution Infrastructure
-- ✓ Configurable image model + API key per invocation or env — Validated in Phase 1: Provider Resolution Infrastructure
-- ✓ OpenRouter integration (OpenAI-compatible API for LLM text tasks) — Validated in Phase 2: OpenRouter Text Adapter
-- ✓ `gemini-3.1-flash-image-preview` hardened as default with clear docs — Validated in Phase 3: Deploy Readiness and OSS Hardening
-- ✓ Deploy readiness: clean credentials, error guidance, .env.example complete — Validated in Phase 3: Deploy Readiness and OSS Hardening
+*(none — v1.0 fully shipped; next requirements defined in v1.1 milestone)*
 
 ### Out of Scope
 
-- Native Stable Diffusion / DALL-E image generation — different SDK entirely; out of scope for v1.0
+- Native Stable Diffusion / DALL-E image generation — different SDK entirely; deferred to v2
 - Web UI or dashboard — CLI/skill interface is the contract; GUI adds scope creep
-- Video/animation output — static infographics only for v1.0
+- Video/animation output — static infographics only
+- OpenRouter for image generation — incompatible response format with Gemini `inline_data`; Gemini image quality is the differentiator
+- Abstract provider base classes / LiteLLM — two providers don't justify ABC or registry; flat `if/elif` is correct scope
 
 ## Context
 
-- Stack: Python 3.8+, matplotlib, google-genai SDK, Pillow, numpy, Playwright
+- Stack: Python 3.9+, matplotlib, google-genai SDK, Pillow, numpy, Playwright, requests
 - Pretty mode routes between AI Studio (INFG_API_KEY) and Vertex AI (INFG_VERTEX_PROJECT + ADC)
 - AI-Studio-only models (like `gemini-3.1-flash-image-preview`) are hard-coded in `_AI_STUDIO_ONLY` list
-- OpenRouter uses an OpenAI-compatible API (`openai` Python package or `requests`)
+- OpenRouter uses `requests.post()` to the OpenAI-compatible API — no `openai` package required
+- `openai` package is guarded by `_OPENAI_OK` lazy import — matplotlib offline path works without it
 - The skill is invoked from Claude Code via SKILL.md; all scripts are called via Bash
-- OSS prep was completed in quick tasks (Mar 2026) — ready to publish pending model flexibility
+- ~10,700 LOC Python (including tests); 17 pytest tests passing
 
 ## Constraints
 
@@ -70,25 +65,12 @@ Turn any data or context into a publication-ready infographic with one command �
 | google-genai SDK for Gemini | Official SDK, handles AI Studio + Vertex AI routing | ✓ Good |
 | gemini-3.1-flash-image-preview as default | Best quality/cost for image generation in Feb 2026 | ✓ Good |
 | matplotlib as offline fallback | Zero-credential path for all users | ✓ Good |
-| Playwright for HTML→PNG | Required for text-model (non-image) Gemini output | — Pending review |
-| OpenRouter via OpenAI-compatible API | Gives access to 100+ LLMs with one integration | ✓ Shipped — `requests.post()`, slash validation, 401/402 errors, token counts |
-
-## Evolution
-
-This document evolves at phase transitions and milestone boundaries.
-
-**After each phase transition** (via `/gsd:transition`):
-1. Requirements invalidated? → Move to Out of Scope with reason
-2. Requirements validated? → Move to Validated with phase reference
-3. New requirements emerged? → Add to Active
-4. Decisions to log? → Add to Key Decisions
-5. "What This Is" still accurate? → Update if drifted
-
-**After each milestone** (via `/gsd:complete-milestone`):
-1. Full review of all sections
-2. Core Value check — still the right priority?
-3. Audit Out of Scope — reasons still valid?
-4. Update Context with current state
+| Playwright for HTML→PNG | Required for text-model (non-image) Gemini output | ⚠️ Revisit — heavy dependency |
+| OpenRouter via `requests.post()` | Zero new required dependency; openai SDK deferred | ✓ Shipped v1.0 |
+| Flat `if/elif` provider dispatch | Two providers don't justify ABC/registry overhead | ✓ Good |
+| Inline `re.sub()` in `_redact_key` | Simpler multi-pattern extension than compiled module-level regex | ✓ Good |
+| `sk-or-v1-` prefix retained in redaction | Users can identify which key leaked | ✓ Good |
+| Removed google-genai/playwright from required pip deps in SKILL.md | They are optional; required listing caused unnecessary installs | ✓ Good |
 
 ---
-*Last updated: 2026-03-24 — Phase 3 complete: Deploy Readiness and OSS Hardening delivered — all v1.0 phases complete*
+*Last updated: 2026-03-25 — v1.0 milestone complete*
