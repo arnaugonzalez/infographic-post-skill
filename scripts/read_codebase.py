@@ -130,6 +130,114 @@ def _read_file_safe(path: Path, max_bytes: int = MAX_FILE_BYTES) -> str:
         return ""
 
 
+def _token_estimate(text: str) -> int:
+    """Rough token count: characters // 4 (GPT-style approximation)."""
+    return len(text) // 4
+
+
+def _extract_python_signals(source: str) -> str:
+    """Extract class names and public function signatures via AST.
+
+    Returns a compact signal string for use as a preamble in summary_text.
+    Falls back to first 500 chars on syntax errors.
+    """
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return source[:500]
+    lines: list = []
+    docstring = ast.get_docstring(tree)
+    if docstring:
+        lines.append(f'"""{docstring[:200]}"""')
+    for node in ast.iter_child_nodes(tree):
+        if isinstance(node, ast.ClassDef):
+            lines.append(f"class {node.name}:")
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if not node.name.startswith("_"):
+                lines.append(f"def {node.name}(...):")
+    return "\n".join(lines)
+
+
+def _infer_layers(files: list) -> list:
+    """Categorize included file paths into arch.json-compatible layer dicts.
+
+    Each layer dict has exactly: label, category, items, bg, border, label_color.
+    """
+    CATEGORIES = {
+        "testing": {
+            "label": "Testing",
+            "bg": "#E8F5E9",
+            "border": "#388E3C",
+            "label_color": "#1B5E20",
+        },
+        "backend": {
+            "label": "Backend / Scripts",
+            "bg": "#FFF3E0",
+            "border": "#F57C00",
+            "label_color": "#E65100",
+        },
+        "docs": {
+            "label": "Documentation",
+            "bg": "#E3F2FD",
+            "border": "#1976D2",
+            "label_color": "#0D47A1",
+        },
+        "config": {
+            "label": "Configuration",
+            "bg": "#F3E5F5",
+            "border": "#7B1FA2",
+            "label_color": "#4A148C",
+        },
+        "other": {
+            "label": "Other",
+            "bg": "#ECEFF1",
+            "border": "#546E7A",
+            "label_color": "#263238",
+        },
+    }
+
+    DOC_EXTS = {".md", ".txt", ".rst"}
+    CONFIG_EXTS = {".json", ".yaml", ".yml", ".toml", ".cfg", ".ini"}
+
+    buckets: dict = {cat: [] for cat in CATEGORIES}
+
+    for rel in files:
+        p = Path(rel)
+        parts = p.parts
+        name = p.name
+        suffix = p.suffix.lower()
+
+        # Testing: in tests/ directory or name contains test_
+        if any(part in ("tests", "test") for part in parts) or "test_" in name:
+            buckets["testing"].append(name)
+        # Backend/scripts: in scripts/, src/, app/
+        elif any(part in ("scripts", "src", "app") for part in parts):
+            buckets["backend"].append(name)
+        # Docs
+        elif suffix in DOC_EXTS:
+            buckets["docs"].append(name)
+        # Config
+        elif suffix in CONFIG_EXTS:
+            buckets["config"].append(name)
+        else:
+            buckets["other"].append(name)
+
+    layers = []
+    for cat, meta in CATEGORIES.items():
+        items = buckets[cat]
+        if items:
+            layers.append({
+                "label": meta["label"],
+                "category": cat,
+                "items": items,
+                "bg": meta["bg"],
+                "border": meta["border"],
+                "label_color": meta["label_color"],
+            })
+
+    return layers
+
+
 def _should_skip_dir(dirname: str) -> bool:
     """Return True if a directory name should be pruned during walking."""
     return dirname in DEFAULT_SKIP_DIRS
@@ -168,26 +276,30 @@ def read_codebase(root, token_budget: int = TOKEN_BUDGET_DEFAULT) -> dict:
 
     Args:
         root: Path (or str) to the directory root.
-        token_budget: Approximate token budget for summary_text (placeholder for Plan 02).
+        token_budget: Approximate token budget for summary_text. Overridden by
+            INFG_CODEBASE_TOKEN_BUDGET env var if set.
 
     Returns:
         A dict with keys:
             files_included  -- list of relative path strings that were read
             files_excluded  -- list of relative path strings that were skipped
+                               (includes both filtered and budget-excluded files)
             summary_text    -- concatenated file contents with redaction applied
-            layers          -- [] (populated in Plan 02)
-            connections     -- [] (populated in Plan 02)
-            root            -- str(root)
+            layers          -- list of arch.json-compatible layer dicts
+            connections     -- [] (populated by downstream consumers)
+            root            -- absolute str(root)
             title           -- directory name
-            token_estimate  -- rough character count / 4
+            token_estimate  -- tokens used (chars of included content // 4)
             format          -- "codebase"
     """
-    root = Path(root)
+    root = Path(root).resolve()
+    # Env var override: INFG_CODEBASE_TOKEN_BUDGET takes precedence over argument
+    budget = int(os.environ.get("INFG_CODEBASE_TOKEN_BUDGET", token_budget))
     gitignore_spec = _build_noise_filter(root)
 
-    files_included = []
-    files_excluded = []
-    content_parts = []
+    # Collect candidate files (all non-noise, non-binary, non-credential)
+    candidate_files: list = []  # list of (file_path, rel_str)
+    noise_excluded: list = []
 
     for dirpath, dirnames, filenames in os.walk(root):
         # Prune skip directories in-place so os.walk does not descend into them
@@ -204,33 +316,89 @@ def read_codebase(root, token_budget: int = TOKEN_BUDGET_DEFAULT) -> dict:
 
             # Check extension and credential rules
             if _should_skip_file(file_path, gitignore_spec, root):
-                files_excluded.append(rel)
+                noise_excluded.append(rel)
                 continue
 
             # Binary detection
             if _is_binary(file_path):
-                files_excluded.append(rel)
+                noise_excluded.append(rel)
                 continue
 
-            # Read and redact content
-            content = _read_file_safe(file_path)
-            content = _redact_content(content)
+            candidate_files.append((file_path, rel))
 
-            files_included.append(rel)
-            content_parts.append(f'<file path="{rel}">\n{content}\n</file>')
+    # Prioritize: main.py / app.py / __init__.py first, then .py by size ascending,
+    # then non-.py files.
+    def _sort_key(item):
+        fp, rel = item
+        name = fp.name
+        if name in ("main.py", "app.py", "__init__.py"):
+            return (0, 0)
+        if fp.suffix == ".py":
+            try:
+                size = fp.stat().st_size
+            except OSError:
+                size = 0
+            return (1, size)
+        return (2, 0)
+
+    candidate_files.sort(key=_sort_key)
+
+    # Apply token budget
+    files_included = []
+    budget_excluded = []
+    content_parts = []
+    used = 0
+
+    for file_path, rel in candidate_files:
+        content = _read_file_safe(file_path)
+        content = _redact_content(content)
+        est = _token_estimate(content)
+
+        if used + est > budget:
+            budget_excluded.append(rel)
+            continue
+
+        used += est
+        files_included.append(rel)
+
+        # Build file block with AST signals for Python files
+        if file_path.suffix == ".py":
+            signals = _extract_python_signals(content)
+            if signals:
+                block = (
+                    f'<file path="{rel}">\n'
+                    f"## Signals\n{signals}\n\n"
+                    f"## Source\n{content}\n"
+                    f"</file>"
+                )
+            else:
+                block = f'<file path="{rel}">\n{content}\n</file>'
+        else:
+            block = f'<file path="{rel}">\n{content}\n</file>'
+
+        content_parts.append(block)
+
+    # Print explicit exclusion message when budget is hit
+    if budget_excluded:
+        print(
+            f"Token budget ({budget:,} tokens) reached. "
+            f"Excluded {len(budget_excluded)} files:"
+        )
+        for f in budget_excluded:
+            print(f"   - {f}")
 
     summary_text = "\n".join(content_parts)
-    token_estimate = len(summary_text) // 4
+    files_excluded = noise_excluded + budget_excluded
 
     return {
-        "files_included": files_included,
-        "files_excluded": files_excluded,
-        "summary_text": summary_text,
-        "layers": [],
-        "connections": [],
         "root": str(root),
         "title": root.name,
-        "token_estimate": token_estimate,
+        "summary_text": summary_text,
+        "layers": _infer_layers(files_included),
+        "connections": [],
+        "files_included": files_included,
+        "files_excluded": files_excluded,
+        "token_estimate": used,
         "format": "codebase",
     }
 
@@ -241,27 +409,43 @@ def read_codebase(root, token_budget: int = TOKEN_BUDGET_DEFAULT) -> dict:
 
 def _main() -> None:
     parser = argparse.ArgumentParser(
-        description="Read a codebase directory with noise filtering and credential safety."
+        description="Read and summarize a codebase."
     )
-    parser.add_argument("--root", default=".", help="Directory to read (default: .)")
+    # Positional directory argument (new interface)
+    parser.add_argument("directory", nargs="?", type=Path, default=None,
+                        help="Directory to read")
+    # Legacy --root flag (backward compatibility)
+    parser.add_argument("--root", default=None, help="Directory to read (legacy flag)")
     parser.add_argument(
         "--budget", type=int, default=TOKEN_BUDGET_DEFAULT,
-        help=f"Token budget (default: {TOKEN_BUDGET_DEFAULT})"
+        help=f"Token budget (default: {TOKEN_BUDGET_DEFAULT:,})"
     )
-    parser.add_argument("--output", help="Write JSON report to this file (default: stdout)")
+    parser.add_argument("--output", "-o", type=Path, default=None,
+                        help="Write JSON report to file (default: stdout)")
     args = parser.parse_args()
 
-    report = read_codebase(Path(args.root), token_budget=args.budget)
-    output = json.dumps(report, indent=2)
+    # Resolve directory: positional arg takes priority, then --root, then cwd
+    if args.directory is not None:
+        target = args.directory
+    elif args.root is not None:
+        target = Path(args.root)
+    else:
+        target = Path(".")
+
+    if not target.is_dir():
+        print(f"Error: {target} is not a directory", file=sys.stderr)
+        sys.exit(1)
+
+    report = read_codebase(target, token_budget=args.budget)
 
     if args.output:
-        Path(args.output).write_text(output, encoding="utf-8")
+        args.output.write_text(json.dumps(report, indent=2), encoding="utf-8")
         print(f"Report written to {args.output}")
         print(f"Files included: {len(report['files_included'])}")
         print(f"Files excluded: {len(report['files_excluded'])}")
         print(f"Token estimate: {report['token_estimate']:,}")
     else:
-        print(output)
+        print(json.dumps(report, indent=2))
 
 
 if __name__ == "__main__":
