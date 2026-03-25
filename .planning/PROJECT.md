@@ -42,12 +42,13 @@ Turn any data or context into a publication-ready infographic with one command �
 ### Validated
 
 - ✓ Codebase reader (`scripts/read_codebase.py`): noise-filtered directory walk, credential safety, token budget, AST signals, CodebaseReport output — Validated in Phase 04: codebase-reader-foundation
+- ✓ Model-aware prompt registry (`_PROMPT_STRATEGIES` dict, `_get_strategy()`, `_warn_if_stale()`) replacing inline model checks — Validated in Phase 05: prompt-registry-and-codebase-to-infographic
+- ✓ `--codebase <dir>` CLI flag wired to `read_codebase()` + `_config_from_codebase_report()` for direct codebase infographics — Validated in Phase 05: prompt-registry-and-codebase-to-infographic
 
 ### Active
 
 - [ ] Codebase analysis pipeline (architect+reviewer lens, noise-filtered) — v1.1
 - [ ] LinkedIn post generator, 2 angles (technical + business), user-selected language — v1.1
-- [ ] Model-aware image prompt strategy (per-model prompt engineering for quality) — v1.1
 - [ ] OSS quality audit report (coverage + docs + code quality) — v1.1
 
 ### Out of Scope
@@ -66,7 +67,7 @@ Turn any data or context into a publication-ready infographic with one command �
 - OpenRouter uses `requests.post()` to the OpenAI-compatible API — no `openai` package required
 - `openai` package is guarded by `_OPENAI_OK` lazy import — matplotlib offline path works without it
 - The skill is invoked from Claude Code via SKILL.md; all scripts are called via Bash
-- ~10,700 LOC Python (including tests); 17 pytest tests passing
+- ~10,700 LOC Python (including tests); 63 pytest tests passing
 
 ## Constraints
 
