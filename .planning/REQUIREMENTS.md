@@ -22,9 +22,9 @@
 
 ### Model-Aware Prompt Registry (PROMPTREG)
 
-- [ ] **PROMPTREG-01**: A `_PROMPT_STRATEGIES` registry dict in `generate_pretty.py` maps model families (gemini, dalle, sd) to prompt strategy parameters, replacing inline `if/elif` model checks
-- [ ] **PROMPTREG-02**: Registry entries store only structural constraints (context window, image dimensions, style vocabulary) — no quality heuristics that decay between model updates
-- [ ] **PROMPTREG-03**: Each registry entry includes a `last_verified` date field to surface stale entries
+- [x] **PROMPTREG-01**: A `_PROMPT_STRATEGIES` registry dict in `generate_pretty.py` maps model families (gemini, dalle, sd) to prompt strategy parameters, replacing inline `if/elif` model checks
+- [x] **PROMPTREG-02**: Registry entries store only structural constraints (context window, image dimensions, style vocabulary) — no quality heuristics that decay between model updates
+- [x] **PROMPTREG-03**: Each registry entry includes a `last_verified` date field to surface stale entries
 
 ### OSS Quality Audit (AUDIT)
 

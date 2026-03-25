@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Codebase Intelligence and Content Pipeline
-status: Ready to plan
-last_updated: "2026-03-25T10:51:34.566Z"
+status: Phase complete — ready for verification
+last_updated: "2026-03-25T13:01:23.924Z"
 progress:
   total_phases: 5
   completed_phases: 1
-  total_plans: 2
+  total_plans: 4
   completed_plans: 2
 ---
 
@@ -18,12 +18,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-25)
 
 **Core value:** Turn any data or context into a publication-ready infographic with one command.
-**Current focus:** Phase 04 — codebase-reader-foundation
+**Current focus:** Phase 05 — prompt-registry-and-codebase-to-infographic
 
 ## Current Position
 
-Phase: 5
-Plan: Not started
+Phase: 05 (prompt-registry-and-codebase-to-infographic) — EXECUTING
+Plan: 2 of 2
 
 ## Performance Metrics
 
@@ -34,6 +34,8 @@ Plan: Not started
 | Tests passing | 17 | 17+ (extend) |
 | Phase 04-codebase-reader-foundation P01 | 3 | 2 tasks | 3 files |
 | Phase 04 P02 | 274 | 2 tasks | 2 files |
+| Phase 05-prompt-registry-and-codebase-to-infographic P01 | 12 | 2 tasks | 2 files |
+| Phase 05-prompt-registry-and-codebase-to-infographic P02 | 4 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -56,6 +58,11 @@ Key v1.1 decisions pre-loaded from research:
 - [Phase 04-codebase-reader-foundation]: _SECRET_PATTERNS defined independently in read_codebase.py — avoids coupling to generate_pretty.py
 - [Phase 04]: Exclusion messages printed to stdout so capsys can capture in tests; CLI test uses small file avoiding message contamination of JSON output
 - [Phase 04]: File prioritization: entry points first, then .py by size ascending to maximize file count within token budget
+- [Phase 05-prompt-registry-and-codebase-to-infographic]: Registry keyed by family string (gemini/dalle/sd), not per-version — new variants classify into existing families without code changes
+- [Phase 05-prompt-registry-and-codebase-to-infographic]: Staleness threshold set at 90 days for _warn_if_stale(); _gemini_version() retained for icon-mode print message; only _supports_icons() removed
+- [Phase 05-prompt-registry-and-codebase-to-infographic]: D-05: viz_type always 'arch' for codebase infographics via _config_from_codebase_report returning (config, 'arch') tuple
+- [Phase 05-prompt-registry-and-codebase-to-infographic]: D-06: report['summary_text'] maps to config['description'] (not report['summary'])
+- [Phase 05-prompt-registry-and-codebase-to-infographic]: D-08: read_codebase imported lazily inside elif branch via existing sys.path pattern
 
 ### Pending Todos
 

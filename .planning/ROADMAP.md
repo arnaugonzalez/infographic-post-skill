@@ -50,7 +50,7 @@ Plans:
   1. User can see `_PROMPT_STRATEGIES` dict in `generate_pretty.py` with model-family keys replacing the prior inline `if/elif` model-string checks
   2. Each registry entry has a `last_verified` date field; running `generate_pretty.py` with an unrecognized model family prints a warning and falls back gracefully rather than crashing
   3. User can run `generate_pretty.py --codebase <dir>` and receive an infographic generated from the codebase summary without modifying any existing CLI arguments
-**Plans:** 2 plans
+**Plans:** 0/2 plans executed
 Plans:
 - [ ] 05-01-PLAN.md — TDD: prompt registry (_PROMPT_STRATEGIES, _model_family, _get_strategy) (PROMPTREG-01, PROMPTREG-02, PROMPTREG-03)
 - [ ] 05-02-PLAN.md — TDD: --codebase flag wiring and CodebaseReport-to-config mapping (PROMPTREG-01)
@@ -95,7 +95,7 @@ Plans:
 | 2. OpenRouter Text Adapter | v1.0 | 1/1 | Complete | 2026-03-23 |
 | 3. Deploy Readiness and OSS Hardening | v1.0 | 1/1 | Complete | 2026-03-24 |
 | 4. Codebase Reader Foundation | v1.1 | 1/2 | In Progress|  |
-| 5. Prompt Registry and Codebase-to-Infographic | v1.1 | 0/2 | Not started | - |
+| 5. Prompt Registry and Codebase-to-Infographic | v1.1 | 0/2 | Planned    |  |
 | 6. LinkedIn Post Generator | v1.1 | 0/? | Not started | - |
 | 7. OSS Quality Audit | v1.1 | 0/? | Not started | - |
 | 8. Integration and SKILL.md | v1.1 | 0/? | Not started | - |
