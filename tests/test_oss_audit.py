@@ -1,6 +1,6 @@
 """Unit tests for oss_audit.py core functions.
 
-Covers AUDIT-01, AUDIT-02, AUDIT-03.
+Covers AUDIT-01, AUDIT-02, AUDIT-03, AUDIT-04.
 All subprocess calls are mocked — no live coverage/flake8 needed.
 """
 import json
@@ -20,6 +20,8 @@ from oss_audit import (
     _check_oss_files,
     _run_coverage,
     _run_flake8,
+    run_audit,
+    write_report,
 )
 
 
@@ -223,3 +225,142 @@ class TestComplexity:
         py_file.write_text(src, encoding="utf-8")
         result = _branch_complexity(py_file)
         assert result == []
+
+
+# ---------------------------------------------------------------------------
+# TestReportFile (AUDIT-04)
+# ---------------------------------------------------------------------------
+
+def _make_minimal_scripts_dir(tmp_path: Path) -> Path:
+    """Create a minimal scripts/ directory with a simple .py file for test use."""
+    scripts_dir = tmp_path / "scripts"
+    scripts_dir.mkdir()
+    (scripts_dir / "hello.py").write_text(
+        'def greet():\n    """Return a greeting."""\n    return "hello"\n',
+        encoding="utf-8",
+    )
+    return scripts_dir
+
+
+def _make_audit_dict(**overrides) -> dict:
+    """Build a minimal audit dict, with optional per-key overrides."""
+    base = {
+        "coverage": {},
+        "docstrings_missing": [],
+        "oss_files": {"README.md": True, "LICENSE": False, ".env.example": False,
+                      "CHANGELOG.md": False, "CHANGELOG": False},
+        "flake8_issues": [],
+        "complexity_hotspots": [],
+    }
+    base.update(overrides)
+    return base
+
+
+class TestReportFile:
+    """AUDIT-04: write_report writes QUALITY_AUDIT.md with all 5 sections."""
+
+    def test_quality_audit_md_written(self, tmp_path):
+        """run_audit returns dict; write_report creates QUALITY_AUDIT.md with all section headers."""
+        audit = _make_audit_dict()
+        out = tmp_path / "QUALITY_AUDIT.md"
+        write_report(audit, out)
+        assert out.exists()
+        content = out.read_text(encoding="utf-8")
+        assert "# Quality Audit Report" in content
+        assert "## Test Coverage" in content
+        assert "## Docstring Coverage" in content
+        assert "## OSS Baseline Files" in content
+        assert "## Code Quality (Flake8)" in content
+        assert "## Complexity Hotspots" in content
+
+    def test_coverage_section_content(self, tmp_path):
+        """When coverage has {'scripts/foo.py': 85.0}, report contains 'scripts/foo.py' and '85.0'."""
+        audit = _make_audit_dict(coverage={"scripts/foo.py": 85.0})
+        out = tmp_path / "QUALITY_AUDIT.md"
+        write_report(audit, out)
+        content = out.read_text(encoding="utf-8")
+        assert "scripts/foo.py" in content
+        assert "85.0" in content
+
+    def test_missing_docstrings_listed(self, tmp_path):
+        """When docstrings_missing has entries, report lists them."""
+        audit = _make_audit_dict(docstrings_missing=["foo.py::bar (line 5)"])
+        out = tmp_path / "QUALITY_AUDIT.md"
+        write_report(audit, out)
+        content = out.read_text(encoding="utf-8")
+        assert "foo.py::bar (line 5)" in content
+
+    def test_oss_files_present_absent(self, tmp_path):
+        """When oss_files has README.md True and LICENSE False, report shows appropriate indicators."""
+        audit = _make_audit_dict(oss_files={"README.md": True, "LICENSE": False})
+        out = tmp_path / "QUALITY_AUDIT.md"
+        write_report(audit, out)
+        content = out.read_text(encoding="utf-8")
+        # README.md should show present indicator
+        assert "README.md" in content
+        # LICENSE should show missing indicator
+        assert "LICENSE" in content
+        assert "MISSING" in content
+
+    def test_flake8_issues_listed(self, tmp_path):
+        """When flake8_issues has entries, report contains the code and message."""
+        audit = _make_audit_dict(flake8_issues=[{
+            "file": "foo.py", "line": "10", "col": "1",
+            "code": "F401", "message": "F401 'os' imported but unused",
+        }])
+        out = tmp_path / "QUALITY_AUDIT.md"
+        write_report(audit, out)
+        content = out.read_text(encoding="utf-8")
+        assert "F401" in content
+        assert "imported but unused" in content
+
+    def test_complexity_hotspots_listed(self, tmp_path):
+        """When complexity_hotspots has entries, report contains function name and branch count."""
+        audit = _make_audit_dict(complexity_hotspots=[{
+            "file": "complex.py", "name": "big_func", "line": 3, "branches": 8,
+        }])
+        out = tmp_path / "QUALITY_AUDIT.md"
+        write_report(audit, out)
+        content = out.read_text(encoding="utf-8")
+        assert "big_func" in content
+        assert "8" in content
+
+
+# ---------------------------------------------------------------------------
+# TestCLI (AUDIT-04)
+# ---------------------------------------------------------------------------
+
+class TestCLI:
+    """AUDIT-04: CLI accepts --root flag, exits 0, creates QUALITY_AUDIT.md."""
+
+    def _make_project(self, tmp_path: Path) -> Path:
+        """Create minimal project structure for CLI smoke test."""
+        scripts_dir = tmp_path / "scripts"
+        scripts_dir.mkdir()
+        (scripts_dir / "hello.py").write_text(
+            'def greet():\n    """Return a greeting."""\n    return "hello"\n',
+            encoding="utf-8",
+        )
+        return tmp_path
+
+    def test_cli_exits_zero(self, tmp_path):
+        """subprocess.run(['python3', 'oss_audit.py', '--root', str(tmp_path)]) exits 0."""
+        project = self._make_project(tmp_path)
+        result = subprocess.run(
+            ["python3", "oss_audit.py", "--root", str(project)],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, (
+            f"CLI exited {result.returncode}\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+        )
+
+    def test_cli_creates_file(self, tmp_path):
+        """After running CLI, tmp_path / 'QUALITY_AUDIT.md' exists."""
+        project = self._make_project(tmp_path)
+        subprocess.run(
+            ["python3", "oss_audit.py", "--root", str(project)],
+            capture_output=True,
+            text=True,
+        )
+        assert (project / "QUALITY_AUDIT.md").exists()
