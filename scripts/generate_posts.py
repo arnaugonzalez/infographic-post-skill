@@ -54,6 +54,14 @@ LANG_NAMES = {
 TECH_SEPARATOR = "--- TECHNICAL POST ---"
 BIZ_SEPARATOR = "--- BUSINESS POST ---"
 
+# Languages with low LLM training representation that drift toward related majority languages
+_MINORITY_LANGUAGES = {"ca"}
+
+# Maps each minority language to the Romance languages models commonly confuse it with
+_NEGATIVE_CONSTRAINTS = {
+    "ca": ["Spanish", "Portuguese", "French", "Italian"],
+}
+
 # ---------------------------------------------------------------------------
 # Cross-script imports
 # ---------------------------------------------------------------------------
@@ -103,6 +111,27 @@ def _call_openrouter(user_prompt: str, system_prompt: str, model: str, api_key: 
 
 
 # ---------------------------------------------------------------------------
+# Minority language negative constraint helper
+# ---------------------------------------------------------------------------
+
+
+def _negative_language_constraint(language: str, prompt_type: str = "technical") -> str:
+    """Return an explicit negative constraint for minority/regional languages.
+
+    Returns a non-empty string only for languages in _MINORITY_LANGUAGES.
+    The phrasing differs between prompt types to keep sentence sets disjoint.
+    """
+    if language not in _MINORITY_LANGUAGES:
+        return ""
+    langs = ", ".join(_NEGATIVE_CONSTRAINTS[language])
+    lang_name = LANG_NAMES[language]
+    if prompt_type == "technical":
+        return f" Do NOT write in {langs} — write exclusively in {lang_name}."
+    else:
+        return f" Avoid {langs} entirely — produce all content in {lang_name}."
+
+
+# ---------------------------------------------------------------------------
 # System prompt builders
 # ---------------------------------------------------------------------------
 
@@ -110,6 +139,7 @@ def _call_openrouter(user_prompt: str, system_prompt: str, model: str, api_key: 
 def _build_technical_system_prompt(language: str) -> str:
     """Return system prompt for the technical-angle LinkedIn post."""
     lang_name = LANG_NAMES[language]
+    negative_constraint = _negative_language_constraint(language, "technical")
     return (
         f"Language directive: respond exclusively in {lang_name}. "
         "You are a LinkedIn content expert writing for software engineers. "
@@ -120,7 +150,7 @@ def _build_technical_system_prompt(language: str) -> str:
         "Do not use template placeholders or generic filler text. "
         "End with a specific call-to-action that invites engineers to comment "
         "or share their own implementation approach. "
-        "Target length: your post must be 800 to 1,600 characters long. "
+        f"Target length: your post must be 800 to 1,600 characters long.{negative_constraint} "
         f"CRITICAL REMINDER: Every sentence must be written in {lang_name} only."
     )
 
@@ -128,6 +158,7 @@ def _build_technical_system_prompt(language: str) -> str:
 def _build_business_system_prompt(language: str) -> str:
     """Return system prompt for the business-angle LinkedIn post."""
     lang_name = LANG_NAMES[language]
+    negative_constraint = _negative_language_constraint(language, "business")
     return (
         f"Output language: write the entire post in {lang_name}. "
         "You are a LinkedIn content strategist writing for product managers and executives. "
@@ -137,7 +168,7 @@ def _build_business_system_prompt(language: str) -> str:
         "not technical mechanics. "
         "Avoid jargon; speak the language of strategy and product delivery. "
         "Close with a call-to-action asking readers to share how they measure similar outcomes. "
-        "Character range: aim for 800 to 1,600 characters in your response. "
+        f"Character range: aim for 800 to 1,600 characters in your response.{negative_constraint} "
         f"FINAL NOTE: All content must appear in {lang_name}, without exception."
     )
 
@@ -150,6 +181,7 @@ def _build_business_system_prompt(language: str) -> str:
 def _generate_post(user_prompt: str, system_prompt: str, model: str, api_key: str) -> str:
     """Generate a LinkedIn post, retrying once if length is outside 800-1600 chars."""
     post = _call_openrouter(user_prompt, system_prompt, model, api_key)
+    post = post.strip()  # Strip whitespace before char count check
     char_count = len(post)
     if not (800 <= char_count <= 1600):
         retry_prompt = (
@@ -158,7 +190,9 @@ def _generate_post(user_prompt: str, system_prompt: str, model: str, api_key: st
             "Rewrite it to be between 800 and 1,600 characters, "
             "keeping the structure and language."
         )
+        print(f"[generate_posts] Retry: post was {char_count} chars (target 800-1600)", file=sys.stderr)
         post = _call_openrouter(retry_prompt, system_prompt, model, api_key)
+        post = post.strip()  # Strip retry response too
     return post
 
 

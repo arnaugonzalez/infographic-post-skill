@@ -225,3 +225,67 @@ class TestSystemPrompts:
         for prompt in [tech, biz]:
             assert "800" in prompt
             assert "1,600" in prompt or "1600" in prompt
+
+
+# ---------------------------------------------------------------------------
+# TestGapClosures (GAP-1, GAP-2)
+# ---------------------------------------------------------------------------
+
+class TestGapClosures:
+    """Tests for gap closure fixes (GAP-1, GAP-2)."""
+
+    def test_minority_language_negative_constraint(self):
+        """Catalan prompt includes explicit negative constraint against Spanish/Portuguese."""
+        from scripts.generate_posts import _build_technical_system_prompt
+        prompt = _build_technical_system_prompt("ca")
+        assert "Do NOT write in" in prompt or "do not write in" in prompt.lower()
+        assert "Spanish" in prompt
+        assert "Portuguese" in prompt
+        assert "Catalan" in prompt
+
+    def test_majority_language_no_negative_constraint(self):
+        """English prompt does NOT include negative constraint."""
+        from scripts.generate_posts import _build_technical_system_prompt
+        prompt = _build_technical_system_prompt("en")
+        assert "Do NOT write in" not in prompt
+
+    def test_business_prompt_also_has_negative_constraint(self):
+        """Business prompt for Catalan also includes negative constraint."""
+        from scripts.generate_posts import _build_business_system_prompt
+        prompt = _build_business_system_prompt("ca")
+        assert "Catalan" in prompt
+        # Must mention at least one confusable language
+        assert any(lang in prompt for lang in ["Spanish", "Portuguese", "French", "Italian"])
+
+    def test_retry_fires_with_whitespace_padded_response(self):
+        """A 571-char post padded with whitespace to 900 chars should still trigger retry after strip."""
+        short_content = "X" * 571
+        padded_post = short_content + " " * 329  # len=900 before strip, 571 after strip
+        good_post = "Y" * 1000
+        with patch("scripts.generate_posts._call_openrouter", side_effect=[padded_post, good_post]) as mock_call:
+            from scripts.generate_posts import _generate_post
+            result = _generate_post("user", "system", "model/x", "key")
+        assert mock_call.call_count == 2
+        assert result == good_post
+
+    def test_retry_logs_to_stderr(self, capsys):
+        """Retry prints a log line to stderr (not stdout)."""
+        short_post = "X" * 400
+        good_post = "Y" * 1000
+        with patch("scripts.generate_posts._call_openrouter", side_effect=[short_post, good_post]):
+            from scripts.generate_posts import _generate_post
+            _generate_post("user", "system", "model/x", "key")
+        captured = capsys.readouterr()
+        assert "Retry" in captured.err
+        assert "400 chars" in captured.err
+
+    def test_catalan_prompt_distinct_from_technical(self):
+        """Negative constraint phrasing differs between technical and business prompts."""
+        from scripts.generate_posts import _build_technical_system_prompt, _build_business_system_prompt
+        tech = _build_technical_system_prompt("ca")
+        biz = _build_business_system_prompt("ca")
+        # Sentence sets must remain disjoint even with negative constraint
+        tech_sentences = {s.strip() for s in tech.split(".") if s.strip()}
+        biz_sentences = {s.strip() for s in biz.split(".") if s.strip()}
+        shared = tech_sentences & biz_sentences
+        assert len(shared) == 0, f"Shared sentences after adding negative constraint: {shared}"
