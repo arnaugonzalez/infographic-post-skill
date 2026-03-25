@@ -1,0 +1,3 @@
+# Audit-only dependencies -- not required for normal skill operation
+coverage>=7.0
+flake8>=6.0
