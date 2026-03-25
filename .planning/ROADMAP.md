@@ -79,7 +79,10 @@ Plans:
   2. The audit output names specific functions missing docstrings and lists which of README, LICENSE, .env.example, CHANGELOG are absent — not just aggregate scores
   3. The audit output includes flake8 logical error counts and flags specific functions with high branch complexity via stdlib `ast`
   4. Running `oss_audit.py` writes a `QUALITY_AUDIT.md` file to the project root that can be committed as a snapshot of project health
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 07-01-PLAN.md — TDD: core audit functions — coverage, docstrings, OSS files, flake8, complexity (AUDIT-01, AUDIT-02, AUDIT-03)
+- [ ] 07-02-PLAN.md — Report renderer, CLI wiring, integration tests, QUALITY_AUDIT.md generation (AUDIT-01, AUDIT-02, AUDIT-03, AUDIT-04)
 
 ### Phase 8: Integration and SKILL.md
 **Goal**: All v1.1 capabilities are documented in SKILL.md with working invocation examples, and an end-to-end smoke test confirms the full codebase-to-infographic and codebase-to-posts pipelines run without errors on a real repository
@@ -101,5 +104,5 @@ Plans:
 | 4. Codebase Reader Foundation | v1.1 | 1/2 | In Progress|  |
 | 5. Prompt Registry and Codebase-to-Infographic | v1.1 | 0/2 | Planned    |  |
 | 6. LinkedIn Post Generator | v1.1 | 1/3 | Gap Closure | - |
-| 7. OSS Quality Audit | v1.1 | 0/? | Not started | - |
+| 7. OSS Quality Audit | v1.1 | 0/2 | Planned | - |
 | 8. Integration and SKILL.md | v1.1 | 0/? | Not started | - |
