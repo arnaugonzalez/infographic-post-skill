@@ -72,3 +72,66 @@ class TestPromptRegistry:
         assert _model_family("dall-e-3") == "dalle"
         assert _model_family("stable-diffusion-xl") == "sd"
         assert _model_family("unknown") == "unknown"
+
+
+class TestCodebaseFlag:
+    """Tests for the --codebase flag and CodebaseReport-to-config mapping."""
+
+    def setup_method(self):
+        """Standard mock CodebaseReport for testing mapping logic."""
+        self.mock_report = {
+            "root": "/tmp/test-project",
+            "title": "test-project",
+            "summary_text": "Test summary content",
+            "layers": [
+                {
+                    "label": "Backend",
+                    "category": "backend",
+                    "items": ["app.py"],
+                    "bg": "#1e3a5f",
+                    "border": "#2196F3",
+                    "label_color": "#fff",
+                }
+            ],
+            "connections": [{"from": "A", "to": "B"}],
+            "files_included": ["app.py"],
+            "files_excluded": [],
+            "token_estimate": 100,
+            "format": "codebase",
+        }
+
+    def test_codebase_config_mapping(self):
+        """D-06: report layers/summary_text/connections map correctly into config dict."""
+        from generate_pretty import _config_from_codebase_report
+
+        config, viz_type = _config_from_codebase_report(self.mock_report)
+
+        assert config["layers"] == self.mock_report["layers"]
+        assert config["description"] == self.mock_report["summary_text"]
+        assert config["connections"] == self.mock_report["connections"]
+
+    def test_codebase_title_derivation(self):
+        """D-07: Title derived from directory name when --title is the argparse default."""
+        from generate_pretty import _config_from_codebase_report
+
+        # Use a report with a hyphenated root directory name
+        report = dict(self.mock_report)
+        report["root"] = "/tmp/my-cool-project"
+
+        # When title == "System Architecture" (argparse default), derive from directory name
+        config, viz_type = _config_from_codebase_report(report, title="System Architecture")
+        assert config["title"] == "My Cool Project"
+
+    def test_codebase_title_explicit(self):
+        """D-07: When --title is explicitly set, use it as-is."""
+        from generate_pretty import _config_from_codebase_report
+
+        config, viz_type = _config_from_codebase_report(self.mock_report, title="Custom Title")
+        assert config["title"] == "Custom Title"
+
+    def test_codebase_viz_type_forced_arch(self):
+        """D-05: viz_type is always 'arch' for codebase infographics."""
+        from generate_pretty import _config_from_codebase_report
+
+        _, viz_type = _config_from_codebase_report(self.mock_report)
+        assert viz_type == "arch"

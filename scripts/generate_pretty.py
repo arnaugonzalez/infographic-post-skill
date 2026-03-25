@@ -283,7 +283,7 @@ def _gemini_version(model: str) -> tuple[int, int]:
 
 
 def _model_family(model: str) -> str:
-    """Return the model family key for use with _PROMPT_STRATEGIES."""
+    """Return the model family string: 'gemini', 'dalle', 'sd', or first token of unknown models."""
     name = model.lower().replace("models/", "")
     if name.startswith("gemini"):
         return "gemini"
@@ -395,7 +395,7 @@ Use emoji as a styled <span style="font-size:14px"> in place of the SVG element.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
 
 
-# ── Prompt registry — single source of truth for model-family prompt params ───
+# ── Prompt strategy registry ──────────────────────────────────────────────────
 
 _PROMPT_STRATEGIES: dict[str, dict] = {
     "gemini": {
@@ -426,10 +426,7 @@ _PROMPT_STRATEGIES: dict[str, dict] = {
 
 
 def _get_strategy(model: str) -> dict:
-    """Return the prompt strategy dict for the given model string.
-
-    Falls back to the gemini strategy (with a warning) for unrecognized families.
-    """
+    """Return the prompt strategy dict for the given model, falling back to gemini."""
     family = _model_family(model)
     if family not in _PROMPT_STRATEGIES:
         print(f"\u26a0\ufe0f  Unrecognized model family '{family}' \u2014 falling back to gemini strategy.")
@@ -441,7 +438,7 @@ _STALE_THRESHOLD_DAYS = 90
 
 
 def _warn_if_stale(strategy: dict, family: str) -> None:
-    """Print a warning if the strategy's last_verified date is older than the stale threshold."""
+    """Print a warning if the strategy entry has not been verified recently."""
     lv = strategy.get("last_verified", "")
     if not lv:
         return
@@ -960,7 +957,7 @@ def generate_pretty(
         # AI-Studio-only models go to AI Studio; stable models go to Vertex AI.
         client, backend = _build_genai_client(model_name)
 
-        # ── Detect icon mode via prompt registry ──────────────────────────────────
+        # ── Detect icon mode (registry-based strategy lookup) ─────────────────
         strategy = _get_strategy(model_name)
         _warn_if_stale(strategy, _model_family(model_name))
         use_icons = strategy["supports_icons"]
@@ -1079,6 +1076,42 @@ def generate_pretty(
     return html_path
 
 
+# ── Codebase-to-config mapping ────────────────────────────────────────────────
+
+
+def _config_from_codebase_report(
+    report: dict,
+    title: str = "System Architecture",
+    subtitle: str = "Technical Architecture Overview",
+    author: str = "",
+    cta: str = "Follow for more software architecture content",
+) -> tuple:
+    """Convert a CodebaseReport dict into a (config, viz_type) tuple.
+
+    Per D-05: viz_type is always "arch" for codebase infographics.
+    Per D-06: report["layers"] -> config["layers"],
+              report["summary_text"] -> config["description"],
+              report["connections"] -> config["connections"].
+    Per D-07: Title derived from directory name when title is the argparse default.
+    """
+    # D-07: derive title from directory name if user didn't set --title
+    if title == "System Architecture":
+        raw_name = Path(report.get("root", "unknown")).resolve().name
+        title = raw_name.replace("-", " ").replace("_", " ").title()
+
+    config = {
+        "title":        title,
+        "subtitle":     subtitle,
+        "author":       author,
+        "linkedin_cta": cta,
+        "description":  report.get("summary_text", ""),   # D-06: summary_text, NOT "summary"
+        "layers":       report.get("layers", []),          # D-06: direct, arch.json-compatible
+        "connections":  report.get("connections", []),     # D-06: connections if present
+    }
+    viz_type = "arch"  # D-05: always architecture diagram
+    return config, viz_type
+
+
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
@@ -1088,6 +1121,7 @@ if __name__ == "__main__":
     ap.add_argument("--config",   help="Path to arch.json (from parse_context.py)")
     ap.add_argument("--layers",   help="Quick layers: 'Frontend:React,Next.js|Backend:FastAPI'")
     ap.add_argument("--text",     help="Free-form architecture or data description")
+    ap.add_argument("--codebase", help="Path to codebase directory (uses read_codebase.py)")
     ap.add_argument("--type",     default="architecture",
                     choices=["architecture", "dashboard"],
                     help="Visualization type (default: architecture)")
@@ -1138,14 +1172,33 @@ if __name__ == "__main__":
             "layers":       [],
             "connections":  [],
         }
+        viz_type = args.type
+
+    elif args.codebase:
+        try:
+            from read_codebase import read_codebase as _read_codebase  # type: ignore
+        except ImportError:
+            ap.error("read_codebase.py not found — ensure Phase 4 scripts are available")
+        report = _read_codebase(args.codebase)
+        config, viz_type = _config_from_codebase_report(
+            report,
+            title=args.title,
+            subtitle=args.subtitle,
+            author=args.author,
+            cta=args.cta,
+        )
 
     else:
-        ap.error("Provide --config arch.json, --layers '...', or --text '...'")
+        ap.error("Provide --config arch.json, --layers '...', --text '...', or --codebase <dir>")
+
+    # Set viz_type for branches that haven't set it yet (config and layers)
+    if not args.codebase and not args.text:
+        viz_type = args.type
 
     if args.learnings:
         config["learnings"] = args.learnings
 
     llm_provider, llm_model = _resolve_llm_provider(args)
     image_model = _IMAGE_MODEL_ENV if (_IMAGE_MODEL_ENV and args.model == "gemini-3.1-flash-image-preview") else args.model
-    generate_pretty(config, args.output, args.type, image_model,
+    generate_pretty(config, args.output, viz_type, image_model,
                     llm_provider=llm_provider, llm_model=llm_model)
