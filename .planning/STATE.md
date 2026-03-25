@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Codebase Intelligence and Content Pipeline
-status: Phase complete — ready for verification
-last_updated: "2026-03-25T16:40:24.255Z"
+status: Ready to plan
+last_updated: "2026-03-25T18:50:14.279Z"
 progress:
   total_phases: 5
   completed_phases: 3
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 7
+  completed_plans: 7
 ---
 
 # Project State
@@ -22,8 +22,8 @@ See: .planning/PROJECT.md (updated 2026-03-25)
 
 ## Current Position
 
-Phase: 06 (linkedin-post-generator) — EXECUTING
-Plan: 1 of 1
+Phase: 7
+Plan: Not started
 
 ## Performance Metrics
 
@@ -37,6 +37,8 @@ Plan: 1 of 1
 | Phase 05-prompt-registry-and-codebase-to-infographic P01 | 12 | 2 tasks | 2 files |
 | Phase 05-prompt-registry-and-codebase-to-infographic P02 | 4 | 2 tasks | 2 files |
 | Phase 06 P01 | 4 | 2 tasks | 2 files |
+| Phase 06 P03 | 5 | 1 tasks | 2 files |
+| Phase 06-linkedin-post-generator P02 | 2min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -66,6 +68,9 @@ Key v1.1 decisions pre-loaded from research:
 - [Phase 05-prompt-registry-and-codebase-to-infographic]: D-08: read_codebase imported lazily inside elif branch via existing sys.path pattern
 - [Phase 06]: System prompt sentence sets must be fully disjoint — using different phrasing per prompt for language enforcement and char target to avoid shared sentences between technical and business prompts
 - [Phase 06]: Language enforcement uses two distinct phrases per prompt (opening + closing) satisfying D-03 repetition without creating shared sentences between prompts
+- [Phase 06]: GAP-3 resolved: budget warning uses file=sys.stderr so stdout remains clean for machine-parseable JSON output
+- [Phase 06-linkedin-post-generator]: [Phase 06-02]: _negative_language_constraint() uses prompt_type param so technical/business phrasings stay disjoint for sentence-set integrity
+- [Phase 06-linkedin-post-generator]: [Phase 06-02]: strip() applied to both initial and retry LLM responses before char count to prevent whitespace masking short posts (GAP-2)
 
 ### Pending Todos
 
