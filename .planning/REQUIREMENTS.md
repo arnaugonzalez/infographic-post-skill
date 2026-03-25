@@ -67,26 +67,26 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CODEBASE-01 | TBD | Planned |
-| CODEBASE-02 | TBD | Planned |
-| CODEBASE-03 | TBD | Planned |
-| CODEBASE-04 | TBD | Planned |
-| POSTS-01 | TBD | Planned |
-| POSTS-02 | TBD | Planned |
-| POSTS-03 | TBD | Planned |
-| POSTS-04 | TBD | Planned |
-| PROMPTREG-01 | TBD | Planned |
-| PROMPTREG-02 | TBD | Planned |
-| PROMPTREG-03 | TBD | Planned |
-| AUDIT-01 | TBD | Planned |
-| AUDIT-02 | TBD | Planned |
-| AUDIT-03 | TBD | Planned |
-| AUDIT-04 | TBD | Planned |
+| CODEBASE-01 | Phase 4 | Planned |
+| CODEBASE-02 | Phase 4 | Planned |
+| CODEBASE-03 | Phase 4 | Planned |
+| CODEBASE-04 | Phase 4 | Planned |
+| PROMPTREG-01 | Phase 5 | Planned |
+| PROMPTREG-02 | Phase 5 | Planned |
+| PROMPTREG-03 | Phase 5 | Planned |
+| POSTS-01 | Phase 6 | Planned |
+| POSTS-02 | Phase 6 | Planned |
+| POSTS-03 | Phase 6 | Planned |
+| POSTS-04 | Phase 6 | Planned |
+| AUDIT-01 | Phase 7 | Planned |
+| AUDIT-02 | Phase 7 | Planned |
+| AUDIT-03 | Phase 7 | Planned |
+| AUDIT-04 | Phase 7 | Planned |
 
 **Coverage:**
 - v1.1 requirements: 15 total
-- Mapped to phases: TBD (roadmapper fills this)
-- Unmapped: 15 pending
+- Mapped to phases: 15/15
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-25*
