@@ -47,9 +47,10 @@ Turn any data or context into a publication-ready infographic with one command �
 
 ### Active
 
-- [ ] Codebase analysis pipeline (architect+reviewer lens, noise-filtered) — v1.1
-- [ ] LinkedIn post generator, 2 angles (technical + business), user-selected language — v1.1
-- [ ] OSS quality audit report (coverage + docs + code quality) — v1.1
+- ✓ Codebase analysis pipeline (`scripts/read_codebase.py`): noise-filtered walk, credential safety, token budget — Validated in Phase 04: codebase-reader-foundation
+- ✓ LinkedIn post generator (`scripts/generate_posts.py`): dual-angle posts, language enforcement, character retry — Validated in Phase 06: linkedin-post-generator
+- ✓ OSS quality audit report (`oss_audit.py`): 5 core audit functions, Markdown renderer, `--root` CLI, QUALITY_AUDIT.md generated — Validated in Phase 07: oss-quality-audit
+- ✓ SKILL.md v1.1 Codebase Tools docs + E2E pipeline verified (generate_posts.py, generate_pretty.py --codebase, oss_audit.py, read_codebase.py) — Validated in Phase 08: integration-and-skill-md
 
 ### Out of Scope
 
@@ -91,4 +92,4 @@ Turn any data or context into a publication-ready infographic with one command �
 | Removed google-genai/playwright from required pip deps in SKILL.md | They are optional; required listing caused unnecessary installs | ✓ Good |
 
 ---
-*Last updated: 2026-03-25 — Phase 04 complete: codebase-reader-foundation (CODEBASE-01–04 verified)*
+*Last updated: 2026-03-25 — Phase 08 complete: integration-and-skill-md (v1.1 milestone complete)*
