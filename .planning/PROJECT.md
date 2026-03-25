@@ -39,6 +39,10 @@ Turn any data or context into a publication-ready infographic with one command �
 - ✓ `gemini-3.1-flash-image-preview` hardened as default with clear docs — v1.0
 - ✓ Deploy readiness: clean credentials, error guidance, .env.example complete — v1.0
 
+### Validated
+
+- ✓ Codebase reader (`scripts/read_codebase.py`): noise-filtered directory walk, credential safety, token budget, AST signals, CodebaseReport output — Validated in Phase 04: codebase-reader-foundation
+
 ### Active
 
 - [ ] Codebase analysis pipeline (architect+reviewer lens, noise-filtered) — v1.1
@@ -86,4 +90,4 @@ Turn any data or context into a publication-ready infographic with one command �
 | Removed google-genai/playwright from required pip deps in SKILL.md | They are optional; required listing caused unnecessary installs | ✓ Good |
 
 ---
-*Last updated: 2026-03-25 — v1.1 milestone started: Codebase Intelligence and Content Pipeline*
+*Last updated: 2026-03-25 — Phase 04 complete: codebase-reader-foundation (CODEBASE-01–04 verified)*

@@ -8,10 +8,10 @@
 
 ### Codebase Reader (CODEBASE)
 
-- [ ] **CODEBASE-01**: User can run `read_codebase.py` on a directory and receive a filtered summary that skips build artifacts, dependencies, test files, config/dotfiles, and binary files
-- [ ] **CODEBASE-02**: User's codebase summary is automatically token-budget-capped before any LLM call; key files are prioritized if the total would exceed the budget
-- [ ] **CODEBASE-03**: File contents are redacted of secrets (API keys, tokens) before being sent to any external LLM API
-- [ ] **CODEBASE-04**: `read_codebase.py` emits a structured JSON `CodebaseReport` for downstream consumers (LinkedIn generator, infographic pipeline)
+- [x] **CODEBASE-01**: User can run `read_codebase.py` on a directory and receive a filtered summary that skips build artifacts, dependencies, test files, config/dotfiles, and binary files
+- [x] **CODEBASE-02**: User's codebase summary is automatically token-budget-capped before any LLM call; key files are prioritized if the total would exceed the budget
+- [x] **CODEBASE-03**: File contents are redacted of secrets (API keys, tokens) before being sent to any external LLM API
+- [x] **CODEBASE-04**: `read_codebase.py` emits a structured JSON `CodebaseReport` for downstream consumers (LinkedIn generator, infographic pipeline)
 
 ### LinkedIn Post Generator (POSTS)
 
