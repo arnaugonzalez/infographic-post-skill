@@ -1,4 +1,6 @@
-"""Tests for scripts/read_codebase.py — CODEBASE-01 and CODEBASE-03."""
+"""Tests for scripts/read_codebase.py — CODEBASE-01, CODEBASE-02, CODEBASE-03, CODEBASE-04."""
+import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -247,3 +249,189 @@ class TestContentRedaction:
         assert "def calculate(x): return x * 2" in report["summary_text"], (
             "Normal code was incorrectly redacted or missing from summary_text"
         )
+
+
+class TestTokenBudget:
+    """CODEBASE-02: Token budget enforcement with explicit exclusion."""
+
+    def test_budget_excludes_large_files(self, tmp_path):
+        """Files that exceed the token budget are listed in files_excluded."""
+        for i in range(5):
+            (tmp_path / f"big_{i}.py").write_text("x" * 10_000)
+        report = read_codebase(tmp_path, token_budget=5000)
+        assert len(report["files_excluded"]) > 0
+        assert len(report["files_included"]) < 5
+
+    def test_budget_exclusion_message_printed(self, tmp_path, capsys):
+        """Exceeding token budget must print explicit exclusion message to stdout."""
+        for i in range(5):
+            (tmp_path / f"big_{i}.py").write_text("x" * 10_000)
+        read_codebase(tmp_path, token_budget=5000)
+        captured = capsys.readouterr()
+        assert "Token budget" in captured.out or "Excluded" in captured.out, (
+            f"Expected exclusion message in stdout, got: {captured.out!r}"
+        )
+
+    def test_all_files_within_budget(self, tmp_path):
+        """Small files that fit in budget must all be included and files_excluded empty."""
+        for i in range(2):
+            (tmp_path / f"small_{i}.py").write_text("x" * 100)
+        report = read_codebase(tmp_path, token_budget=40_000)
+        assert len(report["files_excluded"]) == 0
+        assert len(report["files_included"]) == 2
+
+    def test_token_estimate_in_report(self, tmp_path):
+        """token_estimate must be at least chars // 4 of the file content."""
+        (tmp_path / "file.py").write_text("x" * 400)
+        report = read_codebase(tmp_path)
+        assert report["token_estimate"] >= 100, (
+            f"token_estimate too low: {report['token_estimate']}"
+        )
+
+
+class TestTokenBudgetEnvVar:
+    """CODEBASE-02: INFG_CODEBASE_TOKEN_BUDGET env var override."""
+
+    def test_env_var_overrides_default(self, tmp_path, monkeypatch):
+        """Setting INFG_CODEBASE_TOKEN_BUDGET=500 forces a very tight budget."""
+        monkeypatch.setenv("INFG_CODEBASE_TOKEN_BUDGET", "500")
+        for i in range(3):
+            (tmp_path / f"big_{i}.py").write_text("y" * 5_000)
+        report = read_codebase(tmp_path)
+        assert len(report["files_excluded"]) > 0, (
+            "Expected files to be excluded with budget=500 but files_excluded is empty"
+        )
+
+    def test_env_var_not_set_uses_default(self, tmp_path, monkeypatch):
+        """When INFG_CODEBASE_TOKEN_BUDGET is absent the default 40,000 budget is used."""
+        monkeypatch.delenv("INFG_CODEBASE_TOKEN_BUDGET", raising=False)
+        for i in range(2):
+            (tmp_path / f"small_{i}.py").write_text("z" * 100)
+        report = read_codebase(tmp_path)
+        # With small files and 40k budget everything should be included
+        assert len(report["files_excluded"]) == 0
+
+
+class TestCodebaseReportSchema:
+    """CODEBASE-04: CodebaseReport dict has correct structure."""
+
+    def test_report_has_required_keys(self, tmp_path):
+        """All 9 required keys must be present in the returned dict."""
+        (tmp_path / "main.py").write_text("x = 1\n")
+        report = read_codebase(tmp_path)
+        required_keys = {
+            "root", "title", "summary_text", "layers", "connections",
+            "files_included", "files_excluded", "token_estimate", "format",
+        }
+        missing = required_keys - set(report.keys())
+        assert not missing, f"Missing keys in report: {missing}"
+
+    def test_format_is_codebase(self, tmp_path):
+        """report['format'] must equal 'codebase'."""
+        (tmp_path / "main.py").write_text("x = 1\n")
+        report = read_codebase(tmp_path)
+        assert report["format"] == "codebase", (
+            f"Expected format='codebase', got {report['format']!r}"
+        )
+
+    def test_root_is_absolute_path(self, tmp_path):
+        """report['root'] must be an absolute path (starts with '/')."""
+        (tmp_path / "main.py").write_text("x = 1\n")
+        report = read_codebase(tmp_path)
+        assert report["root"].startswith("/"), (
+            f"Expected absolute path for root, got: {report['root']!r}"
+        )
+
+    def test_title_is_dirname(self, tmp_path):
+        """report['title'] must match the directory name."""
+        (tmp_path / "main.py").write_text("x = 1\n")
+        report = read_codebase(tmp_path)
+        assert report["title"] == tmp_path.name, (
+            f"Expected title={tmp_path.name!r}, got {report['title']!r}"
+        )
+
+
+class TestLayersFormat:
+    """CODEBASE-04: layers key matches arch.json format."""
+
+    def test_layers_is_list(self, tmp_path):
+        """report['layers'] must be a list."""
+        (tmp_path / "main.py").write_text("x = 1\n")
+        report = read_codebase(tmp_path)
+        assert isinstance(report["layers"], list), (
+            f"Expected layers to be a list, got {type(report['layers'])}"
+        )
+
+    def test_layer_has_required_keys(self, tmp_path):
+        """Each layer dict must have label, category, items, bg, border, label_color."""
+        (tmp_path / "main.py").write_text("x = 1\n")
+        report = read_codebase(tmp_path)
+        required_layer_keys = {"label", "category", "items", "bg", "border", "label_color"}
+        for layer in report["layers"]:
+            missing = required_layer_keys - set(layer.keys())
+            assert not missing, f"Layer missing keys {missing}: {layer}"
+
+
+class TestASTExtraction:
+    """CODEBASE-01/04: Python files get AST signal extraction."""
+
+    def test_python_file_signals_extracted(self, tmp_path):
+        """Class and function names from a .py file must appear in summary_text."""
+        code = (
+            "class MyService:\n"
+            "    pass\n"
+            "\n"
+            "def process_data(x):\n"
+            "    return x\n"
+            "\n"
+            "def helper_fn():\n"
+            "    pass\n"
+        )
+        (tmp_path / "service.py").write_text(code)
+        report = read_codebase(tmp_path)
+        assert "MyService" in report["summary_text"], (
+            "Class name 'MyService' not found in summary_text"
+        )
+        assert "process_data" in report["summary_text"], (
+            "Function name 'process_data' not found in summary_text"
+        )
+
+    def test_non_python_file_raw_content(self, tmp_path):
+        """Non-.py files must include their raw content in summary_text."""
+        js_content = "function greet(name) { return 'hello ' + name; }\n"
+        (tmp_path / "utils.js").write_text(js_content)
+        report = read_codebase(tmp_path)
+        assert "function greet" in report["summary_text"], (
+            "Raw JS content not found in summary_text"
+        )
+
+
+class TestCLI:
+    """CODEBASE-04: CLI entry point produces valid JSON."""
+
+    def test_cli_json_output(self, tmp_path):
+        """Running the script with a directory arg must print valid JSON to stdout."""
+        (tmp_path / "hello.py").write_text("print('hello')")
+        result = subprocess.run(
+            [sys.executable, "scripts/read_codebase.py", str(tmp_path)],
+            capture_output=True, text=True,
+            cwd=str(Path(__file__).resolve().parent.parent)
+        )
+        assert result.returncode == 0, f"Non-zero exit: {result.stderr}"
+        data = json.loads(result.stdout)
+        assert "files_included" in data
+
+    def test_cli_output_flag(self, tmp_path):
+        """Running with --output flag must write a valid JSON file."""
+        (tmp_path / "hello.py").write_text("print('hello')")
+        out_file = tmp_path / "report.json"
+        result = subprocess.run(
+            [sys.executable, "scripts/read_codebase.py", str(tmp_path),
+             "--output", str(out_file)],
+            capture_output=True, text=True,
+            cwd=str(Path(__file__).resolve().parent.parent)
+        )
+        assert result.returncode == 0, f"Non-zero exit: {result.stderr}"
+        assert out_file.exists(), "Output file was not created"
+        data = json.loads(out_file.read_text())
+        assert "files_included" in data
