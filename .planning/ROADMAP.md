@@ -37,9 +37,9 @@ Archive: `.planning/milestones/v1.0-ROADMAP.md`
   2. User running on a directory with API keys in `.env` or `credentials.json` files does not see those values appear in the output — those files are unconditionally skipped
   3. User running on a large repo sees an explicit message listing which files were excluded to stay within the token budget, never silent truncation
   4. A downstream script can import `read_codebase` and receive a `CodebaseReport` dict with a `layers` key structurally compatible with the existing `arch.json` format
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 Plans:
-- [ ] 04-01-PLAN.md — TDD: noise filter, binary detection, credential safety (CODEBASE-01, CODEBASE-03)
+- [x] 04-01-PLAN.md — TDD: noise filter, binary detection, credential safety (CODEBASE-01, CODEBASE-03)
 - [ ] 04-02-PLAN.md — TDD: token budget, CodebaseReport schema, AST extraction, CLI (CODEBASE-02, CODEBASE-04)
 
 ### Phase 5: Prompt Registry and Codebase-to-Infographic
@@ -92,7 +92,7 @@ Plans:
 | 1. Provider Resolution Infrastructure | v1.0 | 1/1 | Complete | 2026-03-23 |
 | 2. OpenRouter Text Adapter | v1.0 | 1/1 | Complete | 2026-03-23 |
 | 3. Deploy Readiness and OSS Hardening | v1.0 | 1/1 | Complete | 2026-03-24 |
-| 4. Codebase Reader Foundation | v1.1 | 0/2 | Planned | - |
+| 4. Codebase Reader Foundation | v1.1 | 1/2 | In Progress|  |
 | 5. Prompt Registry and Codebase-to-Infographic | v1.1 | 0/? | Not started | - |
 | 6. LinkedIn Post Generator | v1.1 | 0/? | Not started | - |
 | 7. OSS Quality Audit | v1.1 | 0/? | Not started | - |
