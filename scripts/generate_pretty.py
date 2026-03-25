@@ -912,10 +912,19 @@ def _resolve_llm_provider(args) -> tuple[str, str | None]:
     """Resolve LLM provider and model from CLI flags and env vars.
 
     Precedence: CLI flag > env var > default ("gemini").
+    Auto-detects OpenRouter when model contains '/' and provider was not
+    explicitly configured (e.g. INFG_LLM_MODEL=provider/model without
+    setting INFG_LLM_PROVIDER=openrouter).
     Returns (provider, model_or_None).
     """
-    provider = (getattr(args, "llm_provider", None) or _LLM_PROVIDER or "gemini").lower()
+    explicit_provider = getattr(args, "llm_provider", None) or _LLM_PROVIDER
     model    = getattr(args, "llm_model", None) or _LLM_MODEL or None
+    if explicit_provider:
+        provider = explicit_provider.lower()
+    elif model and "/" in model:
+        provider = "openrouter"
+    else:
+        provider = "gemini"
     return provider, model
 
 
@@ -1007,7 +1016,12 @@ def generate_pretty(
     prompt   = _build_html_prompt(config, viz_type, use_icons=use_icons)
     try:
         if llm_provider == "gemini":
-            effective_model = llm_model or model_name
+            if llm_model:
+                effective_model = llm_model
+            elif _model_family(model_name) == "gemini":
+                effective_model = model_name
+            else:
+                effective_model = "gemini-2.5-flash"
             raw_html, usage = _call_gemini_text_mode(prompt, client, effective_model)
         elif llm_provider == "openrouter":
             # ── Requests library guard ──
