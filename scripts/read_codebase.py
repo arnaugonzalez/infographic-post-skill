@@ -382,10 +382,11 @@ def read_codebase(root, token_budget: int = TOKEN_BUDGET_DEFAULT) -> dict:
     if budget_excluded:
         print(
             f"Token budget ({budget:,} tokens) reached. "
-            f"Excluded {len(budget_excluded)} files:"
+            f"Excluded {len(budget_excluded)} files:",
+            file=sys.stderr,
         )
         for f in budget_excluded:
-            print(f"   - {f}")
+            print(f"   - {f}", file=sys.stderr)
 
     summary_text = "\n".join(content_parts)
     files_excluded = noise_excluded + budget_excluded

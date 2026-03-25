@@ -263,14 +263,28 @@ class TestTokenBudget:
         assert len(report["files_included"]) < 5
 
     def test_budget_exclusion_message_printed(self, tmp_path, capsys):
-        """Exceeding token budget must print explicit exclusion message to stdout."""
+        """Exceeding token budget must print explicit exclusion message to stderr."""
         for i in range(5):
             (tmp_path / f"big_{i}.py").write_text("x" * 10_000)
         read_codebase(tmp_path, token_budget=5000)
         captured = capsys.readouterr()
-        assert "Token budget" in captured.out or "Excluded" in captured.out, (
-            f"Expected exclusion message in stdout, got: {captured.out!r}"
+        assert "Token budget" in captured.err or "Excluded" in captured.err, (
+            f"Expected exclusion message in stderr, got: {captured.err!r}"
         )
+
+    def test_budget_warning_goes_to_stderr_not_stdout(self, tmp_path, capsys):
+        """GAP-3: Budget warning must print to stderr, not stdout."""
+        # Create enough files to exceed a tiny budget
+        for i in range(10):
+            (tmp_path / f"file_{i}.py").write_text("x" * 500)
+        read_codebase(str(tmp_path), token_budget=100)
+        captured = capsys.readouterr()
+        # Warning must be in stderr
+        assert "Token budget" in captured.err
+        assert "Excluded" in captured.err
+        # stdout must be clean
+        assert "Token budget" not in captured.out
+        assert "Excluded" not in captured.out
 
     def test_all_files_within_budget(self, tmp_path):
         """Small files that fit in budget must all be included and files_excluded empty."""
