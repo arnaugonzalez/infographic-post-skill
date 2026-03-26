@@ -23,6 +23,16 @@ from pathlib import Path
 _SKILL_DIR = Path(__file__).resolve().parent.parent
 _ENV_PATH = _SKILL_DIR / ".env"
 
+# ---------------------------------------------------------------------------
+# Model quality advisory (shared module)
+# ---------------------------------------------------------------------------
+
+try:
+    from model_quality import classify_model_quality, quality_warning
+except ImportError:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from model_quality import classify_model_quality, quality_warning
+
 
 def _load_dotenv(path: Path) -> None:
     if not path.exists():
@@ -239,6 +249,10 @@ def main() -> None:
     if not api_key:
         print("Set INFG_OPENROUTER_API_KEY in .env or environment")
         sys.exit(1)
+
+    # ── Quality tier advisory ──
+    tier = classify_model_quality(model)
+    quality_warning(model, tier, context="post")
 
     report = read_codebase(args.directory)
     user_prompt = (

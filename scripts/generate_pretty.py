@@ -294,7 +294,18 @@ def _model_family(model: str) -> str:
     return name.split("-")[0]
 
 
-# ── Icon guides injected into prompts for Gemini 2.5+ ────────────────────────
+# ── Model quality tiers ──────────────────────────────────────────────────────
+# Imported from shared model_quality module — single source of truth for
+# tier definitions, classification, and CLI warning messages.
+
+try:
+    from model_quality import classify_model_quality as _classify_model_quality
+    from model_quality import quality_warning as _quality_warning
+except ImportError:
+    # Fallback: if model_quality.py is not on sys.path yet, try relative import
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from model_quality import classify_model_quality as _classify_model_quality
+    from model_quality import quality_warning as _quality_warning
 
 _IMAGE_ICON_GUIDE = """
 ━━━ ICON GUIDE — draw recognizable brand logos inside each chip ━━━━━━━━━━━━━━
@@ -870,11 +881,21 @@ def _call_openrouter_text_mode(
 # ── HTML helpers ──────────────────────────────────────────────────────────────
 
 def _strip_fences(raw: str) -> str:
+    """Strip markdown code fences and any LLM preamble before them.
+
+    Many models emit conversational text before the HTML code block, e.g.:
+      "Here's the production-ready HTML file: ```html\n<html>..."
+    This function strips everything up to and including the opening fence,
+    and any trailing closing fence.
+    """
     raw = raw.strip()
-    for fence in ("```html\n", "```HTML\n", "```\n"):
-        if raw.startswith(fence):
-            raw = raw[len(fence):]
+    # --- Strip preamble: find the first code fence and discard everything before it ---
+    for fence in ("```html\n", "```HTML\n", "```html\r\n", "```\n"):
+        idx = raw.find(fence)
+        if idx != -1:
+            raw = raw[idx + len(fence):]
             break
+    # --- Strip trailing fence ---
     if raw.endswith("```"):
         raw = raw[:-3]
     return raw.strip()
@@ -1022,6 +1043,9 @@ def generate_pretty(
                 effective_model = model_name
             else:
                 effective_model = "gemini-2.5-flash"
+            # ── Quality tier advisory ──
+            tier = _classify_model_quality(effective_model)
+            _quality_warning(effective_model, tier)
             raw_html, usage = _call_gemini_text_mode(prompt, client, effective_model)
         elif llm_provider == "openrouter":
             # ── Requests library guard ──
@@ -1051,6 +1075,9 @@ def generate_pretty(
                 sys.exit(1)
 
             print(f"🤖  Calling {effective_model} via OpenRouter …")
+            # ── Quality tier advisory ──
+            tier = _classify_model_quality(effective_model)
+            _quality_warning(effective_model, tier)
             raw_html, or_usage = _call_openrouter_text_mode(prompt, effective_model, or_api_key)
         else:
             print(f"❌  Unknown LLM provider: {llm_provider!r}. Supported: gemini, openrouter")
