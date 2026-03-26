@@ -68,7 +68,7 @@ Functions with >= 5 branch nodes:
 | generate_linkedin_arch.py | draw_group_icon | 525 | 5 |
 | generate_linkedin_arch.py | render_architecture | 560 | 14 |
 | generate_pretty.py | _playwright_screenshot | 883 | 5 |
-| generate_pretty.py | generate_pretty | 922 | 20 |
+| generate_pretty.py | generate_pretty | 931 | 22 |
 | parse_context.py | _category_from_service_files | 431 | 6 |
 | parse_context.py | _display_name_for_dir | 449 | 13 |
 | parse_context.py | scan_project_services | 516 | 7 |
