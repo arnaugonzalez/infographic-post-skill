@@ -274,5 +274,4 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 if __name__ == "__main__":
-    _build_parser().parse_args()
     main()
