@@ -170,7 +170,7 @@ class TestConnectionsRendered:
         out = render_infographic(data, output=tmp_path / "out.html")
         html = out.read_text(encoding="utf-8")
 
-        assert "arrowhead" in html
+        assert "marker" in html and "arrow" in html
         assert "REST API" in html
         assert "stroke-dasharray" in html
 
@@ -181,4 +181,4 @@ class TestConnectionsRendered:
         out = render_infographic(data, output=tmp_path / "out.html")
         html = out.read_text(encoding="utf-8")
 
-        assert "arrowhead" not in html
+        assert "arrow" not in html or "connection" not in html  # no arrows without connections

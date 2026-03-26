@@ -4,6 +4,21 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=1080">
 <style>
+/* ── CSS Variables ────────────────────────────────────────────── */
+:root {
+  --color-bg-deep: #020617;
+  --color-bg-card: rgba(15, 23, 42, 0.7);
+  --color-text-primary: #f1f5f9;
+  --color-text-secondary: rgba(241, 245, 249, 0.6);
+  --color-text-muted: rgba(241, 245, 249, 0.35);
+  --color-border: rgba(255, 255, 255, 0.06);
+  --radius-card: 16px;
+  --radius-chip: 10px;
+  --radius-badge: 12px;
+  --space-card-padding: 24px;
+  --space-chip-gap: 10px;
+}
+
 /* ── Reset & Canvas ───────────────────────────────────────────── */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -14,61 +29,57 @@ body {
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  color: #fff;
+  color: var(--color-text-primary);
   position: relative;
 }
 
-/* ── Background ───────────────────────────────────────────────── */
+/* ── Background Layer 0: Mesh Gradient ────────────────────────── */
 .canvas {
   width: 1080px;
   height: 1080px;
   position: relative;
-  background: linear-gradient(160deg, #0a0f1e 0%, #0d1b2a 50%, #1a1a2e 100%);
+  background-color: var(--color-bg-deep);
+  background-image:
+    radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.35) 0%, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.25) 0%, transparent 50%),
+    radial-gradient(at 50% 100%, rgba(6, 182, 212, 0.25) 0%, transparent 50%),
+    radial-gradient(at 80% 40%, rgba(192, 132, 252, 0.15) 0%, transparent 40%),
+    radial-gradient(at 20% 60%, rgba(34, 211, 238, 0.12) 0%, transparent 40%);
   overflow: hidden;
 }
 
-/* Decorative blurred blobs */
-.canvas::before,
-.canvas::after {
-  content: '';
-  position: absolute;
-  border-radius: 50%;
-  pointer-events: none;
-}
-.canvas::before {
-  width: 400px; height: 400px;
-  top: -80px; right: -60px;
-  background: radial-gradient(circle, rgba(59,130,246,0.22) 0%, transparent 70%);
-}
-.canvas::after {
-  width: 350px; height: 350px;
-  bottom: 40px; right: -40px;
-  background: radial-gradient(circle, rgba(139,92,246,0.18) 0%, transparent 70%);
-}
-
-.blob-mid {
-  position: absolute;
-  width: 380px; height: 380px;
-  top: 340px; left: -80px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(16,185,129,0.15) 0%, transparent 70%);
-  pointer-events: none;
-}
-
-/* Subtle noise texture overlay */
-.noise {
+/* ── Background Layer 1: SVG Noise/Grain Texture ──────────────── */
+.noise-overlay {
   position: absolute;
   inset: 0;
-  opacity: 0.035;
-  background-image:
-    repeating-radial-gradient(circle at 17% 32%, rgba(255,255,255,0.06) 0px, transparent 1px),
-    repeating-radial-gradient(circle at 62% 78%, rgba(255,255,255,0.04) 0px, transparent 1px),
-    repeating-radial-gradient(circle at 89% 14%, rgba(255,255,255,0.05) 0px, transparent 1px);
-  background-size: 3px 3px, 4px 4px, 5px 5px;
+  opacity: 0.03;
+  z-index: 0;
   pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
 }
 
-/* ── Layout Zones ─────────────────────────────────────────────── */
+/* ── Background Layer 2: Dot Grid Pattern ─────────────────────── */
+.dot-grid {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: radial-gradient(circle, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* ── Background Layer 2b: Circuit Board Pattern ───────────────── */
+.circuit-pattern {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.04;
+}
+
+/* ── Layout ───────────────────────────────────────────────────── */
 .layout {
   position: relative;
   z-index: 1;
@@ -78,7 +89,7 @@ body {
   flex-direction: column;
 }
 
-/* ── Header Zone ──────────────────────────────────────────────── */
+/* ── Header ───────────────────────────────────────────────────── */
 .header {
   height: 120px;
   display: flex;
@@ -94,18 +105,19 @@ body {
   font-weight: 800;
   line-height: 1.15;
   text-align: center;
-  background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 50%, #EC4899 100%);
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, #818cf8, #22d3ee, #c084fc);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  letter-spacing: -0.5px;
+  filter: drop-shadow(0 0 20px rgba(99, 102, 241, 0.4)) drop-shadow(0 0 40px rgba(6, 182, 212, 0.2));
 }
 
 .subtitle {
   margin-top: 6px;
   font-size: 13px;
   font-weight: 500;
-  color: rgba(255,255,255,0.5);
+  color: var(--color-text-muted);
   letter-spacing: 2px;
   text-transform: uppercase;
   text-align: center;
@@ -136,21 +148,64 @@ body {
   z-index: 2;
 }
 
-/* ── Layer Card ───────────────────────────────────────────────── */
-.layer-card {
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-top: 3px solid #3B82F6;
-  border-radius: 16px;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  transition: transform 0.2s ease;
+/* Animated flow on connection paths */
+@keyframes flowDash {
+  to { stroke-dashoffset: -24; }
 }
 
+.conn-path {
+  animation: flowDash 1.5s linear infinite;
+}
+
+.conn-label-bg {
+  fill: rgba(15, 23, 42, 0.85);
+  rx: 8;
+  ry: 8;
+}
+
+.conn-label-text {
+  font-size: 9px;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  fill: var(--color-text-secondary);
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+/* ── Layer Card (Glassmorphism + Depth) ───────────────────────── */
+.layer-card {
+  background: var(--color-bg-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--color-border);
+  border-top: 3px solid #3B82F6;
+  border-radius: var(--radius-card);
+  padding: var(--space-card-padding);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.1),
+    0 4px 8px rgba(0, 0, 0, 0.1),
+    0 8px 16px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* Subtle outer glow matching layer color */
+.layer-card::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: var(--radius-card);
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.08;
+}
+
+/* ── Layer Label with Lucide Icon ─────────────────────────────── */
 .layer-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
@@ -159,32 +214,48 @@ body {
   color: #3B82F6;
 }
 
-/* ── Tech Chips ───────────────────────────────────────────────── */
+.layer-label-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+}
+
+.layer-label-icon svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+/* ── Tech Chips (Premium Treatment) ───────────────────────────── */
 .chip {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  background: rgba(255,255,255,0.03);
-  border-left: 3px solid rgba(59,130,246,0.6);
-  border-radius: 8px;
+  gap: var(--space-chip-gap);
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: var(--radius-chip);
   margin-bottom: 8px;
 }
 .chip:last-child {
   margin-bottom: 0;
 }
 
-.chip-icon {
+.chip-icon-badge {
   flex-shrink: 0;
-  width: 20px;
-  height: 20px;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-badge);
   display: flex;
   align-items: center;
   justify-content: center;
-  line-height: 1;
 }
-.chip-icon svg {
+
+.chip-icon-badge svg {
   display: block;
+  width: 20px;
+  height: 20px;
 }
 
 .chip-text {
@@ -197,7 +268,7 @@ body {
 .chip-name {
   font-size: 13px;
   font-weight: 600;
-  color: #fff;
+  color: var(--color-text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -205,14 +276,14 @@ body {
 
 .chip-desc {
   font-size: 10px;
-  color: rgba(255,255,255,0.45);
+  color: rgba(241, 245, 249, 0.45);
   font-style: italic;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* ── Footer Zone ──────────────────────────────────────────────── */
+/* ── Footer (Premium Treatment) ───────────────────────────────── */
 .footer {
   height: 110px;
   display: flex;
@@ -224,21 +295,23 @@ body {
   gap: 10px;
 }
 
-.footer-cta {
-  font-size: 12px;
-  color: rgba(255,255,255,0.4);
-  text-align: center;
-}
-
 .footer-divider {
   width: 60%;
   height: 1px;
-  background: rgba(255,255,255,0.1);
+  background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.08) 20%, rgba(255, 255, 255, 0.08) 80%, transparent);
+}
+
+.footer-cta {
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  color: var(--color-text-secondary);
+  text-align: center;
 }
 
 .footer-summary {
-  font-size: 10px;
-  color: rgba(255,255,255,0.3);
+  font-size: 11px;
+  font-family: ui-monospace, 'SF Mono', 'Cascadia Code', 'Segoe UI Mono', monospace;
+  color: rgba(255, 255, 255, 0.25);
   text-align: center;
   max-width: 100%;
   white-space: nowrap;
@@ -246,18 +319,55 @@ body {
   text-overflow: ellipsis;
 }
 
+.footer-dots {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+}
+
+.footer-dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+}
+
 .footer-author {
   font-size: 10px;
-  color: rgba(255,255,255,0.25);
+  color: rgba(255, 255, 255, 0.25);
   text-align: center;
 }
 </style>
 </head>
 <body>
 <div class="canvas">
-  <!-- Decorative blobs (::before and ::after on .canvas + extra mid blob) -->
-  <div class="blob-mid"></div>
-  <div class="noise"></div>
+  <!-- Background Layer 1: Noise -->
+  <div class="noise-overlay"></div>
+  <!-- Background Layer 2: Dot Grid -->
+  <div class="dot-grid"></div>
+  <!-- Background Layer 2b: Circuit Pattern -->
+  <svg class="circuit-pattern" width="1080" height="1080" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <pattern id="circuit" x="0" y="0" width="100" height="100" patternUnits="userSpaceOnUse">
+        <line x1="0" y1="20" x2="40" y2="20" stroke="rgba(148,163,184,1)" stroke-width="0.7"/>
+        <line x1="60" y1="20" x2="100" y2="20" stroke="rgba(148,163,184,1)" stroke-width="0.7"/>
+        <line x1="40" y1="20" x2="40" y2="50" stroke="rgba(148,163,184,1)" stroke-width="0.7"/>
+        <line x1="60" y1="50" x2="60" y2="80" stroke="rgba(148,163,184,1)" stroke-width="0.7"/>
+        <line x1="40" y1="50" x2="60" y2="50" stroke="rgba(148,163,184,1)" stroke-width="0.7"/>
+        <circle cx="40" cy="20" r="2" fill="rgba(148,163,184,1)"/>
+        <circle cx="60" cy="20" r="1.5" fill="none" stroke="rgba(148,163,184,1)" stroke-width="0.7"/>
+        <circle cx="40" cy="50" r="1.5" fill="rgba(148,163,184,1)"/>
+        <circle cx="60" cy="50" r="2" fill="none" stroke="rgba(148,163,184,1)" stroke-width="0.7"/>
+        <circle cx="60" cy="80" r="1.5" fill="rgba(148,163,184,1)"/>
+        <rect x="72" y="62" width="14" height="8" rx="1" fill="none" stroke="rgba(148,163,184,1)" stroke-width="0.7"/>
+        <line x1="75" y1="62" x2="75" y2="57" stroke="rgba(148,163,184,1)" stroke-width="0.4"/>
+        <line x1="79" y1="62" x2="79" y2="57" stroke="rgba(148,163,184,1)" stroke-width="0.4"/>
+        <line x1="83" y1="62" x2="83" y2="57" stroke="rgba(148,163,184,1)" stroke-width="0.4"/>
+      </pattern>
+    </defs>
+    <rect width="100%" height="100%" fill="url(#circuit)"/>
+  </svg>
 
   <div class="layout">
     <!-- ═══ HEADER ═══ -->
@@ -273,12 +383,19 @@ body {
       {% if connections %}
       <svg class="connections-overlay" width="1016" height="850" viewBox="0 0 1016 850" fill="none" xmlns="http://www.w3.org/2000/svg">
         <defs>
-          <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
-            <path d="M0,0 L8,3 L0,6" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+          {% for conn in connections %}
+          {% set conn_color = layers[conn.from_layer].color if conn.from_layer < layers|length else '#6366f1' %}
+          <marker id="arrow-{{ loop.index }}" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="strokeWidth">
+            <path d="M 0 1 L 8 5 L 0 9 z" fill="{{ conn_color }}" opacity="0.6"/>
           </marker>
+          <marker id="dot-{{ loop.index }}" markerWidth="6" markerHeight="6" refX="3" refY="3">
+            <circle cx="3" cy="3" r="2.5" fill="{{ conn_color }}" opacity="0.5"/>
+          </marker>
+          {% endfor %}
         </defs>
         {% set cols = [layers|length, 3] | min %}
         {% for conn in connections %}
+          {% set conn_color = layers[conn.from_layer].color if conn.from_layer < layers|length else '#6366f1' %}
           {% set from_col = conn.from_layer % cols %}
           {% set from_row = conn.from_layer // cols %}
           {% set to_col = conn.to_layer % cols %}
@@ -288,14 +405,20 @@ body {
           {% set x2 = (to_col * (1016 // cols)) + (1016 // cols // 2) %}
           {% set y2 = (to_row * 420) + 60 %}
           {% set mid_y = (y1 + y2) // 2 %}
-          <path d="M{{ x1 }},{{ y1 }} C{{ x1 }},{{ mid_y }} {{ x2 }},{{ mid_y }} {{ x2 }},{{ y2 }}"
-                stroke="rgba(255,255,255,0.12)" stroke-width="1.5"
-                stroke-dasharray="6,3" fill="none"
-                marker-end="url(#arrowhead)"/>
+          {% set cp1_y = y1 + (mid_y - y1) * 2 // 3 %}
+          {% set cp2_y = y2 - (y2 - mid_y) * 2 // 3 %}
+          <path d="M{{ x1 }},{{ y1 }} C{{ x1 }},{{ cp1_y }} {{ x2 }},{{ cp2_y }} {{ x2 }},{{ y2 }}"
+                stroke="{{ conn_color }}" stroke-opacity="0.25" stroke-width="1.5"
+                stroke-dasharray="8,4" fill="none"
+                class="conn-path"
+                marker-start="url(#dot-{{ loop.index }})"
+                marker-end="url(#arrow-{{ loop.index }})"/>
           {% if conn.label %}
-          <text x="{{ (x1 + x2) // 2 }}" y="{{ mid_y - 6 }}"
-                fill="rgba(255,255,255,0.2)" font-size="9"
-                text-anchor="middle" font-family="system-ui, sans-serif">{{ conn.label }}</text>
+          {% set lx = (x1 + x2) // 2 %}
+          {% set ly = mid_y %}
+          <rect class="conn-label-bg" x="{{ lx - 30 }}" y="{{ ly - 10 }}" width="60" height="20" rx="8" ry="8"
+                stroke="{{ conn_color }}" stroke-opacity="0.15" stroke-width="0.5"/>
+          <text class="conn-label-text" x="{{ lx }}" y="{{ ly }}">{{ conn.label }}</text>
           {% endif %}
         {% endfor %}
       </svg>
@@ -303,11 +426,40 @@ body {
 
       <div class="content-grid">
         {% for layer in layers %}
-        <div class="layer-card" style="border-top-color: {{ layer.color }};">
-          <div class="layer-label" style="color: {{ layer.color }};">{{ layer.label }}</div>
+        <div class="layer-card" style="border-top-color: {{ layer.color }}; box-shadow: 0 1px 2px rgba(0,0,0,0.1), 0 4px 8px rgba(0,0,0,0.1), 0 8px 16px rgba(0,0,0,0.08), 0 0 30px -5px {{ layer.color }}12, inset 0 1px 0 rgba(255,255,255,0.05);">
+          <div class="layer-label" style="color: {{ layer.color }};">
+            <span class="layer-label-icon" style="color: {{ layer.color }};">
+              {# Lucide category icons based on layer label #}
+              {% set label_upper = layer.label | upper %}
+              {% if 'FRONT' in label_upper %}
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+              {% elif 'BACK' in label_upper or 'API' in label_upper %}
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></svg>
+              {% elif 'DATA' in label_upper or 'DB' in label_upper %}
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg>
+              {% elif 'AI' in label_upper or 'ML' in label_upper %}
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>
+              {% elif 'AUTH' in label_upper or 'SECUR' in label_upper %}
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
+              {% elif 'INFRA' in label_upper or 'CLOUD' in label_upper or 'DEPLOY' in label_upper %}
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
+              {% elif 'QUEUE' in label_upper or 'MESSAG' in label_upper %}
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+              {% elif 'MOBILE' in label_upper %}
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
+              {% elif 'TEST' in label_upper or 'QA' in label_upper %}
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>
+              {% else %}
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></svg>
+              {% endif %}
+            </span>
+            {{ layer.label }}
+          </div>
           {% for item in layer["items"] %}
-          <div class="chip" style="border-left-color: {{ layer.color }}99;">
-            <div class="chip-icon">{{ item.icon_svg | safe }}</div>
+          <div class="chip">
+            <div class="chip-icon-badge" style="background: {{ layer.color }}1A; border: 1px solid {{ layer.color }}26;">
+              {{ item.icon_svg | safe }}
+            </div>
             <div class="chip-text">
               <span class="chip-name">{{ item.name }}</span>
               {% if item.description %}
@@ -327,6 +479,11 @@ body {
       <div class="footer-cta">{{ footer_cta }}</div>
       {% endif %}
       <div class="footer-divider"></div>
+      <div class="footer-dots">
+        <span class="footer-dot"></span>
+        <span class="footer-dot"></span>
+        <span class="footer-dot"></span>
+      </div>
       {% if footer_summary %}
       <div class="footer-summary">{{ footer_summary }}</div>
       {% endif %}
