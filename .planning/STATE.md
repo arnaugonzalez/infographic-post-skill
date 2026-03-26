@@ -87,6 +87,10 @@ Key v1.1 decisions pre-loaded from research:
 
 - Plan Phase 4: Codebase Reader Foundation
 
+### Roadmap Evolution
+
+- Phase 9 added: closing gaps and human verification — bundle all pending todos, open UAT items, and verification gaps into a single phase for human review and sign-off
+
 ### Blockers/Concerns
 
 None.

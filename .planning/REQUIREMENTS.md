@@ -28,10 +28,10 @@
 
 ### OSS Quality Audit (AUDIT)
 
-- [ ] **AUDIT-01**: User can run `oss_audit.py` to get test coverage percentage per module via coverage.py
-- [ ] **AUDIT-02**: Audit reports docstring coverage (via `ast.parse`) and presence of OSS baseline files (README, LICENSE, .env.example, CHANGELOG)
-- [ ] **AUDIT-03**: Audit reports code quality issues via flake8 subprocess and complexity hotspots via ast branch counting
-- [ ] **AUDIT-04**: Audit produces a structured `QUALITY_AUDIT.md` report file
+- [x] **AUDIT-01**: User can run `oss_audit.py` to get test coverage percentage per module via coverage.py
+- [x] **AUDIT-02**: Audit reports docstring coverage (via `ast.parse`) and presence of OSS baseline files (README, LICENSE, .env.example, CHANGELOG)
+- [x] **AUDIT-03**: Audit reports code quality issues via flake8 subprocess and complexity hotspots via ast branch counting
+- [x] **AUDIT-04**: Audit produces a structured `QUALITY_AUDIT.md` report file
 
 ## v2 Requirements
 
