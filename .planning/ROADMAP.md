@@ -114,8 +114,8 @@ Plans:
 **Goal:** Remove the dead-code anti-pattern in generate_posts.py, clean the stale STATE.md todo, and obtain human sign-off on all pending live-API verification items from Phases 6 and 8
 **Requirements**: None (gap closure — validates existing v1.1 requirements end-to-end with live API keys)
 **Depends on:** Phase 8
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
-- [ ] 09-01-PLAN.md — Fix discarded parse_args() call in generate_posts.py + remove stale STATE.md todo
+- [x] 09-01-PLAN.md — Fix discarded parse_args() call in generate_posts.py + remove stale STATE.md todo
 - [ ] 09-02-PLAN.md — Human verification sign-off: 5 live-API checks covering Phase 6 (items 1-3) and Phase 8 (items 1-2)
