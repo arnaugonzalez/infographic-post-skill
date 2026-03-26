@@ -85,7 +85,7 @@ Key v1.1 decisions pre-loaded from research:
 
 ### Pending Todos
 
-- Plan Phase 4: Codebase Reader Foundation
+None.
 
 ### Roadmap Evolution
 
