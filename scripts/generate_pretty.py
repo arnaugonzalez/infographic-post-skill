@@ -1180,6 +1180,10 @@ if __name__ == "__main__":
                     help="Output file (.png for image models, .html for text models)")
     ap.add_argument("--learnings", default="",
                     help="Technologies or learnings this post is about (drives infographic content focus)")
+    ap.add_argument("--template", default="arch-dark-glassmorphism",
+                    help="Jinja2 template name for template-based rendering (default: arch-dark-glassmorphism)")
+    ap.add_argument("--legacy-html", action="store_true",
+                    help="Use legacy LLM-generated HTML instead of template-based rendering")
     args = ap.parse_args()
 
     # Build config dict -------------------------------------------------------
@@ -1221,6 +1225,50 @@ if __name__ == "__main__":
         except ImportError:
             ap.error("read_codebase.py not found — ensure Phase 4 scripts are available")
         report = _read_codebase(args.codebase)
+
+        # ── v2 template-based rendering (default) ────────────────────────
+        if not args.legacy_html:
+            try:
+                from content_structurer import structure_codebase  # type: ignore
+                from template_renderer import render_infographic   # type: ignore
+            except ImportError:
+                print("⚠️  Template modules not found — falling back to legacy HTML mode.")
+                print("   Install jinja2 and simplepycons for template-based rendering.")
+                args.legacy_html = True
+
+        if not args.legacy_html:
+            llm_provider, llm_model = _resolve_llm_provider(args)
+            effective_model = llm_model or _LLM_MODEL or "google/gemini-2.0-flash-001"
+            or_api_key = _OPENROUTER_API_KEY or _LLM_API_KEY
+            structured_data = structure_codebase(
+                report, model=effective_model, api_key=or_api_key or None,
+            )
+            # Override title if user specified
+            if args.title != "System Architecture":
+                structured_data["title"] = args.title
+            if args.author:
+                structured_data["author"] = args.author
+            if args.cta:
+                structured_data["footer_cta"] = args.cta
+
+            html_path = render_infographic(
+                structured_data,
+                template_name=args.template,
+                output=args.output,
+            )
+            print(f"✅  Pretty HTML → {html_path.resolve()}")
+            png_path = _playwright_screenshot(html_path)
+            if png_path:
+                print(f"📸  PNG → {png_path.resolve()}")
+                print(f"    1080×1080 px — ready to post on LinkedIn!")
+            else:
+                print()
+                print("💡  To export to PNG, install Playwright:")
+                print("    pip install playwright && playwright install chromium")
+                print(f"    Then rerun, or open {html_path.resolve()} in Chrome and screenshot.")
+            sys.exit(0)
+
+        # ── Legacy path: LLM generates HTML from scratch ─────────────────
         config, viz_type = _config_from_codebase_report(
             report,
             title=args.title,

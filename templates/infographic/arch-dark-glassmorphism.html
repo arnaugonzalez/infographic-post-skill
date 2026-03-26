@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1080">
+<style>
+/* ── Reset & Canvas ───────────────────────────────────────────── */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  width: 1080px;
+  height: 1080px;
+  overflow: hidden;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: #fff;
+  position: relative;
+}
+
+/* ── Background ───────────────────────────────────────────────── */
+.canvas {
+  width: 1080px;
+  height: 1080px;
+  position: relative;
+  background: linear-gradient(160deg, #0a0f1e 0%, #0d1b2a 50%, #1a1a2e 100%);
+  overflow: hidden;
+}
+
+/* Decorative blurred blobs */
+.canvas::before,
+.canvas::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.canvas::before {
+  width: 400px; height: 400px;
+  top: -80px; right: -60px;
+  background: radial-gradient(circle, rgba(59,130,246,0.22) 0%, transparent 70%);
+}
+.canvas::after {
+  width: 350px; height: 350px;
+  bottom: 40px; right: -40px;
+  background: radial-gradient(circle, rgba(139,92,246,0.18) 0%, transparent 70%);
+}
+
+.blob-mid {
+  position: absolute;
+  width: 380px; height: 380px;
+  top: 340px; left: -80px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(16,185,129,0.15) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* Subtle noise texture overlay */
+.noise {
+  position: absolute;
+  inset: 0;
+  opacity: 0.035;
+  background-image:
+    repeating-radial-gradient(circle at 17% 32%, rgba(255,255,255,0.06) 0px, transparent 1px),
+    repeating-radial-gradient(circle at 62% 78%, rgba(255,255,255,0.04) 0px, transparent 1px),
+    repeating-radial-gradient(circle at 89% 14%, rgba(255,255,255,0.05) 0px, transparent 1px);
+  background-size: 3px 3px, 4px 4px, 5px 5px;
+  pointer-events: none;
+}
+
+/* ── Layout Zones ─────────────────────────────────────────────── */
+.layout {
+  position: relative;
+  z-index: 1;
+  width: 1080px;
+  height: 1080px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Header Zone ──────────────────────────────────────────────── */
+.header {
+  height: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 48px;
+  flex-shrink: 0;
+}
+
+.title {
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1.15;
+  text-align: center;
+  background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 50%, #EC4899 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.5px;
+}
+
+.subtitle {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.5);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+/* ── Content Zone ─────────────────────────────────────────────── */
+.content {
+  flex: 1;
+  padding: 0 32px;
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.content-grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat({{ [layers|length, 3] | min }}, 1fr);
+  gap: 16px;
+  align-content: center;
+}
+
+/* ── Connection Arrows SVG Overlay ────────────────────────────── */
+.connections-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* ── Layer Card ───────────────────────────────────────────────── */
+.layer-card {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-top: 3px solid #3B82F6;
+  border-radius: 16px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s ease;
+}
+
+.layer-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-bottom: 14px;
+  color: #3B82F6;
+}
+
+/* ── Tech Chips ───────────────────────────────────────────────── */
+.chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.03);
+  border-left: 3px solid rgba(59,130,246,0.6);
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+.chip:last-child {
+  margin-bottom: 0;
+}
+
+.chip-icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+.chip-icon svg {
+  display: block;
+}
+
+.chip-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.chip-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chip-desc {
+  font-size: 10px;
+  color: rgba(255,255,255,0.45);
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Footer Zone ──────────────────────────────────────────────── */
+.footer {
+  height: 110px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 48px;
+  flex-shrink: 0;
+  gap: 10px;
+}
+
+.footer-cta {
+  font-size: 12px;
+  color: rgba(255,255,255,0.4);
+  text-align: center;
+}
+
+.footer-divider {
+  width: 60%;
+  height: 1px;
+  background: rgba(255,255,255,0.1);
+}
+
+.footer-summary {
+  font-size: 10px;
+  color: rgba(255,255,255,0.3);
+  text-align: center;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.footer-author {
+  font-size: 10px;
+  color: rgba(255,255,255,0.25);
+  text-align: center;
+}
+</style>
+</head>
+<body>
+<div class="canvas">
+  <!-- Decorative blobs (::before and ::after on .canvas + extra mid blob) -->
+  <div class="blob-mid"></div>
+  <div class="noise"></div>
+
+  <div class="layout">
+    <!-- ═══ HEADER ═══ -->
+    <div class="header">
+      <div class="title">{{ title }}</div>
+      {% if subtitle %}
+      <div class="subtitle">{{ subtitle }}</div>
+      {% endif %}
+    </div>
+
+    <!-- ═══ CONTENT ═══ -->
+    <div class="content">
+      {% if connections %}
+      <svg class="connections-overlay" width="1016" height="850" viewBox="0 0 1016 850" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <path d="M0,0 L8,3 L0,6" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+          </marker>
+        </defs>
+        {% set cols = [layers|length, 3] | min %}
+        {% for conn in connections %}
+          {% set from_col = conn.from_layer % cols %}
+          {% set from_row = conn.from_layer // cols %}
+          {% set to_col = conn.to_layer % cols %}
+          {% set to_row = conn.to_layer // cols %}
+          {% set x1 = (from_col * (1016 // cols)) + (1016 // cols // 2) %}
+          {% set y1 = (from_row * 420) + 200 %}
+          {% set x2 = (to_col * (1016 // cols)) + (1016 // cols // 2) %}
+          {% set y2 = (to_row * 420) + 60 %}
+          {% set mid_y = (y1 + y2) // 2 %}
+          <path d="M{{ x1 }},{{ y1 }} C{{ x1 }},{{ mid_y }} {{ x2 }},{{ mid_y }} {{ x2 }},{{ y2 }}"
+                stroke="rgba(255,255,255,0.12)" stroke-width="1.5"
+                stroke-dasharray="6,3" fill="none"
+                marker-end="url(#arrowhead)"/>
+          {% if conn.label %}
+          <text x="{{ (x1 + x2) // 2 }}" y="{{ mid_y - 6 }}"
+                fill="rgba(255,255,255,0.2)" font-size="9"
+                text-anchor="middle" font-family="system-ui, sans-serif">{{ conn.label }}</text>
+          {% endif %}
+        {% endfor %}
+      </svg>
+      {% endif %}
+
+      <div class="content-grid">
+        {% for layer in layers %}
+        <div class="layer-card" style="border-top-color: {{ layer.color }};">
+          <div class="layer-label" style="color: {{ layer.color }};">{{ layer.label }}</div>
+          {% for item in layer["items"] %}
+          <div class="chip" style="border-left-color: {{ layer.color }}99;">
+            <div class="chip-icon">{{ item.icon_svg | safe }}</div>
+            <div class="chip-text">
+              <span class="chip-name">{{ item.name }}</span>
+              {% if item.description %}
+              <span class="chip-desc">{{ item.description }}</span>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- ═══ FOOTER ═══ -->
+    <div class="footer">
+      {% if footer_cta %}
+      <div class="footer-cta">{{ footer_cta }}</div>
+      {% endif %}
+      <div class="footer-divider"></div>
+      {% if footer_summary %}
+      <div class="footer-summary">{{ footer_summary }}</div>
+      {% endif %}
+      {% if author %}
+      <div class="footer-author">{{ author }}</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -6,6 +6,7 @@ ROADMAP.md
 *.png
 *.svg
 *.html
+!templates/**/*.html
 arch.json
 
 # Credentials and secrets
