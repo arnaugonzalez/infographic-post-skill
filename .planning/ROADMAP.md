@@ -108,3 +108,14 @@ Plans:
 | 6. LinkedIn Post Generator | v1.1 | 1/3 | Gap Closure | - |
 | 7. OSS Quality Audit | v1.1 | 1/2 | In Progress|  |
 | 8. Integration and SKILL.md | v1.1 | 1/1 | Complete    | 2026-03-25 |
+
+### Phase 9: Closing Gaps and Human Verification
+
+**Goal:** Remove the dead-code anti-pattern in generate_posts.py, clean the stale STATE.md todo, and obtain human sign-off on all pending live-API verification items from Phases 6 and 8
+**Requirements**: None (gap closure — validates existing v1.1 requirements end-to-end with live API keys)
+**Depends on:** Phase 8
+**Plans:** 2 plans
+
+Plans:
+- [ ] 09-01-PLAN.md — Fix discarded parse_args() call in generate_posts.py + remove stale STATE.md todo
+- [ ] 09-02-PLAN.md — Human verification sign-off: 5 live-API checks covering Phase 6 (items 1-3) and Phase 8 (items 1-2)
