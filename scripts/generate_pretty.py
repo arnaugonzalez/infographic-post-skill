@@ -1184,6 +1184,12 @@ if __name__ == "__main__":
                     help="Jinja2 template name for template-based rendering (default: arch-dark-glassmorphism)")
     ap.add_argument("--legacy-html", action="store_true",
                     help="Use legacy LLM-generated HTML instead of template-based rendering")
+    ap.add_argument("--infographic-type", default="architecture",
+                    choices=["architecture", "comparison", "feature", "process", "cheatsheet"],
+                    help="Type of infographic to generate (default: architecture)")
+    ap.add_argument("--style", default="modern-dark",
+                    choices=["modern-dark", "modern-light", "illustrated"],
+                    help="Visual style preset (default: modern-dark)")
     args = ap.parse_args()
 
     # Build config dict -------------------------------------------------------
@@ -1231,6 +1237,7 @@ if __name__ == "__main__":
             try:
                 from content_structurer import structure_codebase  # type: ignore
                 from template_renderer import render_infographic   # type: ignore
+                from image_prompt_builder import build_image_prompt as _build_v2_image_prompt  # type: ignore
             except ImportError:
                 print("⚠️  Template modules not found — falling back to legacy HTML mode.")
                 print("   Install jinja2 and simplepycons for template-based rendering.")
@@ -1251,6 +1258,47 @@ if __name__ == "__main__":
             if args.cta:
                 structured_data["footer_cta"] = args.cta
 
+            # ── Choose rendering path: AI image vs HTML template ──────────
+            image_model = _IMAGE_MODEL_ENV if (_IMAGE_MODEL_ENV and args.model == "gemini-3.1-flash-image-preview") else args.model
+
+            # Path A: AI image generation (Gemini image models → PNG directly)
+            if _GENAI_OK and _is_image_model(image_model):
+                print(f"🎨  Building designer-quality image prompt ({args.infographic_type} / {args.style})...")
+                img_prompt = _build_v2_image_prompt(
+                    structured_data,
+                    infographic_type=args.infographic_type,
+                    style=args.style,
+                )
+                client, backend = _build_genai_client(image_model)
+                if backend == "vertex":
+                    print(f"🌐  Backend: Vertex AI  (project={_VERTEX_PROJECT}, region={_VERTEX_LOCATION})")
+                else:
+                    print("🔑  Backend: AI Studio (API key)")
+                print(f"🎨  Calling {image_model} (AI image generation)...")
+                try:
+                    img_bytes, usage = _call_image_mode(img_prompt, client, image_model)
+                except Exception as e:
+                    if "404" in str(e) and image_model != _IMAGE_FALLBACK:
+                        print(f"⚠️  {image_model} not available — falling back to {_IMAGE_FALLBACK}")
+                        image_model = _IMAGE_FALLBACK
+                        img_bytes, usage = _call_image_mode(img_prompt, client, image_model)
+                    else:
+                        _handle_credential_error(e)
+                        raise
+
+                print_cost_report(image_model, usage, backend)
+
+                if img_bytes:
+                    out_path = Path(args.output).with_suffix(".png")
+                    out_path.parent.mkdir(parents=True, exist_ok=True)
+                    out_path.write_bytes(img_bytes)
+                    print(f"✅  AI Infographic → {out_path.resolve()}")
+                    print(f"    1080×1080 px — ready to post on LinkedIn!")
+                    sys.exit(0)
+                else:
+                    print("⚠️  No image returned — falling back to HTML template.")
+
+            # Path B: HTML template rendering (OpenRouter or non-image models)
             html_path = render_infographic(
                 structured_data,
                 template_name=args.template,
