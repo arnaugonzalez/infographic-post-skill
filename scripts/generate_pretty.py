@@ -1259,7 +1259,17 @@ if __name__ == "__main__":
                 structured_data["footer_cta"] = args.cta
 
             # ── Choose rendering path: AI image vs HTML template ──────────
-            image_model = _IMAGE_MODEL_ENV if (_IMAGE_MODEL_ENV and args.model == "gemini-3.1-flash-image-preview") else args.model
+            # CLI --model takes priority; env INFG_IMAGE_MODEL only if CLI is default
+            if args.model != "gemini-3.1-flash-image-preview":
+                image_model = args.model  # User explicitly chose a model
+            elif _IMAGE_MODEL_ENV:
+                # Check if the env model is a Gemini image model or something else
+                if _is_image_model(_IMAGE_MODEL_ENV):
+                    image_model = _IMAGE_MODEL_ENV
+                else:
+                    image_model = args.model  # Env is a non-image model (e.g. flux), keep default
+            else:
+                image_model = args.model
 
             # Path A: AI image generation (Gemini image models → PNG directly)
             if _GENAI_OK and _is_image_model(image_model):
