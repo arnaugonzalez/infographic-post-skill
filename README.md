@@ -32,7 +32,7 @@ Three rendering modes with different quality/cost tradeoffs:
 ### 1. Install
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/infographic-skill.git
+git clone https://github.com/ArnauGonzalez/infographic-skill.git
 cd infographic-skill
 pip install -r requirements.txt
 ```
@@ -196,7 +196,7 @@ This enables the ★★★★★ AI image generation mode (~$0.04/image).
 3. Set:
    ```
    INFG_OPENROUTER_API_KEY=sk-or-v1-your-key
-   INFG_LLM_MODEL=google/gemini-2.0-flash-001
+   INFG_LLM_MODEL=google/gemini-2.5-flash
    ```
 
 This enables the ★★★★☆ HTML template mode (~$0.001/infographic).
@@ -290,7 +290,7 @@ infographic-skill/
 │   ├── chart-selection.md
 │   ├── competitive-research.md
 │   └── visual-quality-patterns.md
-├── tests/                           # 301 tests
+├── tests/                           # 303 tests
 ├── SKILL.md                         # Claude Code skill definition
 ├── .env.example                     # Environment variable template
 ├── requirements.txt                 # Python dependencies
@@ -300,3 +300,66 @@ infographic-skill/
 ## License
 
 MIT License — see [LICENSE](LICENSE) for details.
+
+## How It Works (Under the Hood)
+
+```
+You run: python scripts/generate_pretty.py --codebase ./my-project
+
+Step 1: READ your codebase
+  └→ read_codebase.py scans your project files (skips node_modules, .git, etc.)
+  └→ Applies a 40,000 token budget (prioritizes key files like main.py, App.tsx)
+  └→ Outputs a structured JSON report of your project
+
+Step 2: STRUCTURE the data (requires OpenRouter or Gemini API key)
+  └→ content_structurer.py sends the report to an LLM
+  └→ LLM returns structured JSON: { title, layers, connections }
+  └→ Example: layers = [Frontend: React+Expo, Backend: FastAPI, Database: PostgreSQL]
+
+Step 3: GENERATE the image
+  └→ If Gemini API key available: image_prompt_builder.py creates a designer brief
+     └→ Gemini image model generates a publication-quality PNG directly
+  └→ If no Gemini key: template_renderer.py renders HTML with Jinja2
+     └→ Playwright screenshots the HTML to PNG
+```
+
+## Troubleshooting
+
+### "Set INFG_OPENROUTER_API_KEY in .env"
+You need an API key to structure the codebase. Get one free at https://openrouter.ai/keys, then add it to your `.env` file.
+
+### "google-genai is not installed"
+Install the optional Gemini SDK: `pip install google-genai`
+
+### "Playwright screenshot failed"
+Install Playwright: `pip install playwright && playwright install chromium`
+
+### The infographic shows wrong technologies
+The LLM might misidentify some technologies, especially with budget-tier models. Try a better model:
+```
+INFG_LLM_MODEL=google/gemini-2.5-pro  # More accurate but costs ~$0.05
+```
+
+### The AI image has text typos/artifacts
+This is a known limitation of current image generation models. The image model draws text as pixels, not fonts, so occasional misspellings happen. Try regenerating — each run produces a slightly different result.
+
+### "500 INTERNAL" error from Gemini
+Gemini's image API occasionally has outages. The tool will automatically fall back to the HTML template mode. Try again later for the AI image version.
+
+## FAQ
+
+**Q: Do I need API keys?**
+A: Only for the AI modes. Matplotlib mode (Mode 3) works fully offline with zero keys.
+
+**Q: How much does it cost?**
+A: The AI image mode costs ~$0.04 per infographic (Google AI Studio free tier includes $0 for the first few requests). HTML template mode costs ~$0.001 for the LLM call.
+
+**Q: Can I use it with any project?**
+A: Yes — it works with Python, JavaScript/TypeScript, Dart/Flutter, Kotlin, Go, Rust, or any language. The codebase reader is language-agnostic.
+
+**Q: Does it send my code to external APIs?**
+A: Yes — the codebase reader sends file contents (with secrets redacted) to the LLM for structuring. If this is a concern, use Matplotlib mode (fully offline) or review what `read_codebase.py` sends.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
