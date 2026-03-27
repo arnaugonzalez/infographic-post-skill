@@ -1291,7 +1291,15 @@ if __name__ == "__main__":
                     if "404" in str(e) and image_model != _IMAGE_FALLBACK:
                         print(f"⚠️  {image_model} not available — falling back to {_IMAGE_FALLBACK}")
                         image_model = _IMAGE_FALLBACK
-                        img_bytes, usage = _call_image_mode(img_prompt, client, image_model)
+                        try:
+                            img_bytes, usage = _call_image_mode(img_prompt, client, image_model)
+                        except Exception as e2:
+                            print(f"⚠️  Fallback image model also failed: {e2}")
+                            print("   Falling back to HTML template rendering.")
+                            img_bytes = None
+                    elif "500" in str(e) or "INTERNAL" in str(e):
+                        print(f"⚠️  Gemini image API server error — falling back to HTML template rendering.")
+                        img_bytes = None
                     else:
                         _handle_credential_error(e)
                         raise
