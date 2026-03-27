@@ -19,19 +19,20 @@ class TestClassifyModelQuality:
 
     # Tier 1 — flagship models
     @pytest.mark.parametrize("model", [
-        "anthropic/claude-sonnet-4-20250514",
-        "openai/gpt-4o",
-        "openai/gpt-4-turbo-2024-04-09",
+        "anthropic/claude-sonnet-4.6",
+        "anthropic/claude-opus-4.6",
+        "openai/gpt-5.2",
+        "openai/gpt-5.4",
         "google/gemini-2.5-pro",
         "gemini-3-pro-preview",
         "gemini-3.1-pro-preview",
-        "claude-opus-4",
-        "anthropic/claude-3.5-sonnet",
+        "deepseek/deepseek-v3.2",
+        "xiaomi/mimo-v2-pro",
     ])
     def test_tier_1_flagship(self, model: str) -> None:
         assert classify_model_quality(model) == 1
 
-    # Tier 3 — budget / small models
+    # Tier 3 — budget / small / legacy models
     @pytest.mark.parametrize("model", [
         "meta-llama/llama-3.3-70b-instruct",
         "meta-llama/llama-3.1-8b-instruct",
@@ -43,17 +44,18 @@ class TestClassifyModelQuality:
         "gemini-2.0-flash-lite",
         "gemini-2.5-flash-lite",
         "qwen/qwen-2.5-72b-instruct",
+        "openai/gpt-4o",
+        "anthropic/claude-sonnet-4",
     ])
     def test_tier_3_budget(self, model: str) -> None:
         assert classify_model_quality(model) == 3
 
     # Tier 2 — mid-range (default)
     @pytest.mark.parametrize("model", [
-        "google/gemini-2.0-flash-001",
+        "google/gemini-3-flash-preview",
         "google/gemini-2.5-flash",
-        "anthropic/claude-haiku-4-5",
-        "deepseek/deepseek-chat-v3-0324",
-        "openai/gpt-4o-mini",
+        "stepfun/step-3.5-flash",
+        "anthropic/claude-haiku-4.5",
         "some-unknown/model-xyz",
     ])
     def test_tier_2_midrange(self, model: str) -> None:
@@ -83,7 +85,7 @@ class TestQualityWarning:
         assert "LOW-QUALITY MODEL WARNING" in output
         assert "tier 3" in output
         assert "tier-1 model" in output
-        assert "claude-sonnet-4" in output
+        assert "claude-sonnet-4.6" in output
 
     def test_tier_2_prints_info(self) -> None:
         """Tier 2 should print a brief info message to stderr."""

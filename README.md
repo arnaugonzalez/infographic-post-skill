@@ -24,6 +24,11 @@ Three rendering modes with different quality/cost tradeoffs:
 
 ## Quick Start
 
+### Prerequisites
+
+- Python 3.9+
+- pip
+
 ### 1. Install
 
 ```bash
@@ -208,13 +213,13 @@ The LLM that reads your codebase and structures it into layers has three quality
 
 | Tier | Models | Cost | Quality |
 |------|--------|------|---------|
-| **Tier 1** (best) | `anthropic/claude-sonnet-4-20250514`, `google/gemini-2.5-pro`, `openai/gpt-4o` | $0.01-0.10 | Most accurate layer grouping, best descriptions |
-| **Tier 2** (good) | `google/gemini-2.0-flash-001`, `anthropic/claude-haiku-4-5`, `deepseek/deepseek-chat-v3-0324` | $0.001-0.01 | Good accuracy, occasional misses |
-| **Tier 3** (budget) | `meta-llama/llama-3.3-70b-instruct`, `microsoft/phi-4` | <$0.001 | Fewer items detected, generic descriptions |
+| **Tier 1** (best) | `anthropic/claude-sonnet-4.6`, `google/gemini-2.5-pro`, `openai/gpt-5.2`, `deepseek/deepseek-v3.2` | $0.01-0.10 | Most accurate layer grouping, best descriptions |
+| **Tier 2** (good) | `google/gemini-3-flash-preview`, `google/gemini-2.5-flash`, `stepfun/step-3.5-flash` | $0.001-0.01 | Good accuracy, occasional misses |
+| **Tier 3** (budget) | `meta-llama/llama-3.3-70b-instruct`, `microsoft/phi-4`, legacy models (gpt-4o, claude-sonnet-4) | <$0.001 | Fewer items detected, generic descriptions |
 
 Set in `.env`:
 ```
-INFG_LLM_MODEL=google/gemini-2.0-flash-001   # Tier 2 — best value (default)
+INFG_LLM_MODEL=google/gemini-2.5-flash   # Tier 2 — best value (default)
 ```
 
 **Note:** The LLM tier affects the *content accuracy* (what technologies are detected, how they're described). The *visual quality* is determined by the rendering mode (AI Image vs HTML Template vs Matplotlib), not the LLM.
