@@ -22,6 +22,50 @@ Three rendering modes with different quality/cost tradeoffs:
   data flow arrows, illustrated background, and professional typography
 ```
 
+Here it is an example of invoking the skill with this own repo:
+
+```
+✅ Infographic-Post-Skill Showcase Ready for LinkedIn!
+
+🎨 Generation Details:
+- Model: Gemini 3.1 Flash Image Preview
+- Style: Modern-light (professional, clean corporate aesthetic)
+- Size: 1080 × 1080 px (LinkedIn optimized)
+- File size: 687 KB
+- Quality: ★★★★★ Designer-quality
+- Cost: $0.04 USD
+
+📐 Content (Architecture + Usage):
+
+4 Architecture Layers with 15 components:
+1. Input Pipeline: Codebase Scanner (AST + ripgrep), Context Parser, Token Budget Filter
+2. AI Structuring: LLM Structurer (Gemini/Claude) → Structured JSON
+3. Rendering Pipeline: 3 modes
+   - AI Image Gen (★★★★★) - Gemini, designer-quality, ~$0.04
+   - HTML Template (★★★★☆) - Jinja2 + Simple Icons, free
+   - Matplotlib (★★★☆☆) - Offline, zero cost
+4. Export Layer: PNG Exporter → 1080×1080px output
+
+Key Features Highlighted:
+✨ 4 Infographic Types (Architecture, Comparison, Feature, Process)
+🎨 3 Visual Styles (Illustrated, Professional, Minimal)
+💰 Smart Cost Optimization (Token budget, model routing, free fallbacks)
+⚡ 30-second generation time
+🔐 Local codebase, privacy-first
+
+Use Cases:
+- LinkedIn posts showcasing projects
+- GitHub README architecture diagrams
+- Technical documentation
+- Onboarding materials
+- Architecture Decision Records
+```
+Two examples of output with high quality mode:
+![infographic skill example on its own invokation one](https://github.com/arnaugonzalez/infographic-post-skill/blob/main/infographic_skill_gen_1.jpg) ![infographic skill example on its own invokation two](https://github.com/arnaugonzalez/infographic-post-skill/blob/main/infographic_skill_gen_2.jpeg)
+
+And the next one is from another project of mine (EmotionAI App and API):
+![infographic skill example on project EmotionAI](https://github.com/arnaugonzalez/infographic-post-skill/blob/main/infographic_skill_gen_custom.jpeg)
+
 ## Quick Start
 
 ### Prerequisites
