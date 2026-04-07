@@ -6,9 +6,10 @@ pathspec>=0.12.1
 simplepycons>=1.0
 jinja2>=3.1
 
-# Optional extras are documented in README.md and are not installed by default.
-# Optional: AI-powered "pretty mode" (Gemini)
-# google-genai>=1.0
+# AI-powered "pretty mode" (Gemini image generation via AI Studio / Vertex)
+# Required if INFG_API_KEY or INFG_VERTEX_PROJECT is set; falls back to HTML
+# template rendering when missing.
+google-genai>=1.0
 
-# Optional: auto-screenshot HTML to PNG
+# Optional: auto-screenshot HTML to PNG (only needed for legacy HTML mode export)
 # playwright>=1.40
