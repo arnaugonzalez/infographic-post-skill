@@ -63,9 +63,6 @@ Use Cases:
 Two examples of output with high quality mode:
 ![infographic skill example on its own invokation one](https://github.com/arnaugonzalez/infographic-post-skill/blob/main/infographic_skill_gen_1.jpg) ![infographic skill example on its own invokation two](https://github.com/arnaugonzalez/infographic-post-skill/blob/main/infographic_skill_gen_2.jpeg)
 
-And the next one is from another project of mine (EmotionAI App and API):
-![infographic skill example on project EmotionAI](https://github.com/arnaugonzalez/infographic-post-skill/blob/main/infographic_skill_gen_custom.jpeg)
-
 ## Quick Start
 
 ### Prerequisites
