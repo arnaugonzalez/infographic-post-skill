@@ -1,0 +1,13 @@
+{
+  "name": "infographic-post-skill",
+  "version": "0.1.0",
+  "description": "Turns a codebase, a list of metrics or a short text into a 1080x1080 infographic for LinkedIn or docs: AI image (Gemini), HTML template or fully offline matplotlib.",
+  "author": {
+    "name": "Arnau González",
+    "url": "https://github.com/arnaugonzalez"
+  },
+  "homepage": "https://github.com/arnaugonzalez/infographic-post-skill",
+  "repository": "https://github.com/arnaugonzalez/infographic-post-skill",
+  "license": "MIT",
+  "keywords": ["infographic", "architecture-diagram", "linkedin", "data-visualization", "gemini"]
+}

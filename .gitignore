@@ -1,0 +1,47 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Planning (internal, not shipped)
+.planning/
+ROADMAP.md
+
+# Generated output (don't commit large binaries)
+*.png
+*.svg
+*.html
+!skills/infographic/templates/**/*.html
+!docs/images/*.png
+arch.json
+linkedin_posts.md
+QUALITY_AUDIT.md
+coverage.json
+.coverage
+
+# Credentials and secrets
+.env
+.env.*
+!.env.example
+vertex_credentials.json
+*.key
+*.pem
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local tooling
+.bg-shell/
+.claude/
+.gsd/
