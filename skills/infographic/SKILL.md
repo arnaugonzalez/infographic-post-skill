@@ -88,7 +88,8 @@ The brief makes the model write a `thesis`/`hero`/`archetype`/`cut` comment befo
 Inter as display face, generic subtitles). Reference pages in `style/` (the author's own graphics)
 are added to the prompt; point `--style-dir` (or `INFG_STYLE_DIR`) at a folder of the user's own
 `.html` graphics to make the output match their style. `--finish` prints a warning for every
-banned pattern it finds; if there are warnings, fix the HTML and run `--finish` again.
+banned pattern it finds and, after rendering, for every piece of text that overlaps another block
+or leaves the canvas. If there are warnings, fix the HTML and run `--finish` again.
 
 Old names still work: `modern-light` → editorial, `modern-dark` → blueprint, `illustrated` → swiss.
 

@@ -70,3 +70,33 @@ class TestLogoColors:
         page = '<span class="logo" data-icon="FastAPI"></span>'
         assert 'fill="currentColor"' in inject_logos(page)
         assert 'fill="#' in inject_logos(page, brand_colors=True)
+
+
+class TestLayoutCheck:
+    """Runs headless Chromium; skipped when Playwright's browser is not installed."""
+
+    def _issues(self, tmp_path, capsys, body: str) -> str:
+        pytest.importorskip("playwright")
+        from claude_html_renderer import screenshot
+        page = tmp_path / "p.html"
+        page.write_text(f"<!doctype html><html><body style='margin:0;width:1080px;height:1080px'>{body}"
+                        "</body></html>", encoding="utf-8")
+        try:
+            screenshot(page, tmp_path / "p.png")
+        except Exception as exc:  # browser binary missing on this machine
+            pytest.skip(f"chromium unavailable: {exc}")
+        return capsys.readouterr().err
+
+    def test_overlapping_blocks_are_reported(self, tmp_path, capsys):
+        err = self._issues(tmp_path, capsys, "<h1 style='font-size:80px;line-height:.5'>Headline</h1>"
+                                             "<p style='margin-top:-60px;font-size:30px'>Label</p>")
+        assert 'text overlaps: "Headline" / "Label"' in err
+
+    def test_tight_lines_of_one_heading_are_not_reported(self, tmp_path, capsys):
+        err = self._issues(tmp_path, capsys, "<h1 style='font-size:80px;line-height:.9;width:400px'>"
+                                             "Two lines of <b>one heading</b></h1>")
+        assert "overlaps" not in err
+
+    def test_text_outside_canvas_is_reported(self, tmp_path, capsys):
+        err = self._issues(tmp_path, capsys, "<p style='position:absolute;left:1050px'>Overflowing</p>")
+        assert 'outside the canvas: "Overflowing"' in err

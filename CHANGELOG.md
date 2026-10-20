@@ -15,7 +15,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   formats with `--format` (`portrait` 1080×1350 by default, `square`, `landscape` 1280×640), and
   reference pages from `style/` or `--style-dir` / `INFG_STYLE_DIR` added to the prompt.
 - `scripts/slop_lint.py`: `--finish` warns about generic AI-design patterns (gradients, glow,
-  glassmorphism, card grids, emoji, purple palettes, generic fonts and subtitles).
+  glassmorphism, card grids, emoji, purple palettes, generic fonts and subtitles), and after
+  rendering it reports text that overlaps another block or leaves the canvas.
+- Logos and monograms are drawn in the surrounding text color by default; `--brand-colors` restores
+  brand colors.
 
 ### Changed
 - The design brief (`scripts/prompts/brief.md`) is rewritten: the model writes its thesis, hero

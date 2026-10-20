@@ -59,6 +59,44 @@ def inject_logos(html: str, brand_colors: bool = False) -> str:
     return re.sub(r'<span([^>]*data-icon="([^"]+)"[^>]*)>\s*</span>', repl, html)
 
 
+# One rect per rendered line of every text node; report lines of different nodes that overlap
+# and lines that leave the canvas. Models ignore "nothing may overlap" often enough to check it.
+_LAYOUT_CHECK_JS = """([w, h]) => {
+  const boxes = [];
+  const blocks = new Map();
+  const blockOf = (el) => {
+    while (el.parentElement && getComputedStyle(el).display.startsWith("inline")) el = el.parentElement;
+    if (!blocks.has(el)) blocks.set(el, blocks.size);
+    return blocks.get(el);
+  };
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  let id = 0;
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    const text = n.textContent.trim();
+    if (!text) continue;
+    const range = document.createRange();
+    range.selectNodeContents(n);
+    for (const r of range.getClientRects()) {
+      if (r.width * r.height > 4) boxes.push({id, block: blockOf(n.parentElement), text: text.slice(0, 40), r});
+    }
+    id++;
+  }
+  const issues = [];
+  for (const b of boxes) {
+    if (b.r.left < -1 || b.r.top < -1 || b.r.right > w + 1 || b.r.bottom > h + 1)
+      issues.push(`outside the canvas: "${b.text}"`);
+  }
+  for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+    const a = boxes[i], b = boxes[j];
+    if (a.id === b.id || a.block === b.block) continue;  // lines of one paragraph may touch
+    const x = Math.min(a.r.right, b.r.right) - Math.max(a.r.left, b.r.left);
+    const y = Math.min(a.r.bottom, b.r.bottom) - Math.max(a.r.top, b.r.top);
+    if (x > 2 && y > 2 && x * y > 40) issues.push(`text overlaps: "${a.text}" / "${b.text}"`);
+  }
+  return [...new Set(issues)].slice(0, 10);
+}"""
+
+
 def screenshot(html_path: Path, png_path: Path, size: tuple[int, int] = design.FORMATS["square"]) -> Path:
     width, height = size
     from playwright.sync_api import sync_playwright
@@ -67,6 +105,8 @@ def screenshot(html_path: Path, png_path: Path, size: tuple[int, int] = design.F
         page = browser.new_page(viewport={"width": width, "height": height}, device_scale_factor=2)
         page.goto(f"file://{html_path.resolve()}", wait_until="networkidle")
         page.wait_for_timeout(800)
+        for issue in page.evaluate(_LAYOUT_CHECK_JS, [width, height]):
+            print(f"⚠️  layout: {issue}", file=sys.stderr)
         page.screenshot(path=str(png_path), clip={"x": 0, "y": 0, "width": width, "height": height})
         browser.close()
     return png_path
