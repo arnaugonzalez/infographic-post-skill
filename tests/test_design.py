@@ -57,3 +57,16 @@ class TestSlopLint:
     def test_shipped_reference_pages_have_no_banned_patterns(self):
         for page in design.load_examples():
             assert [w for w in lint_html(page) if not w.startswith("missing")] == []
+
+
+class TestLogoColors:
+    def test_monogram_uses_current_color(self):
+        from icon_registry import _monogram_svg
+        svg = _monogram_svg("AWS EC2", 40)
+        assert 'stroke="currentColor"' in svg and 'fill="currentColor"' in svg and "#" not in svg
+
+    def test_logos_are_monochrome_unless_brand_colors(self):
+        from claude_html_renderer import inject_logos
+        page = '<span class="logo" data-icon="FastAPI"></span>'
+        assert 'fill="currentColor"' in inject_logos(page)
+        assert 'fill="#' in inject_logos(page, brand_colors=True)

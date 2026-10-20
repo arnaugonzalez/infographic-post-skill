@@ -43,6 +43,10 @@ TECHNICAL RULES
   <span class="logo" data-icon="EXACT TECH NAME"></span> (replaced later with the real mark).
   Use them small and sparingly; they are labels, not decoration.
 - Body text ≥ 20px, headline ≥ 56px. Arrows (inline SVG) ≥ 2px, routed through empty space.
+- Every line or arrow starts on one element and ends on another. No stubs, no line that stops in
+  empty space; if a relation does not fit, write it as a label instead of drawing it.
+- Position arrows in the same layout system as the boxes (flex/grid gaps or one SVG that also
+  draws the boxes), never with absolute pixel guesses over HTML boxes.
 - Keep every name you keep EXACTLY as written in the content.
 - Byline: use the content's `author` field if it has one; otherwise no byline. Never copy a name,
   handle or URL from the reference pages.

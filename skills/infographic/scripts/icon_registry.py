@@ -180,7 +180,7 @@ def _extract_path(raw_svg: str) -> str:
 # Public API
 # ---------------------------------------------------------------------------
 
-def get_icon_svg(tech_name: str, size: int = 20) -> str:
+def get_icon_svg(tech_name: str, size: int = 20, mono: bool = False) -> str:
     """Return an inline SVG string for *tech_name*.
 
     Parameters
@@ -189,6 +189,8 @@ def get_icon_svg(tech_name: str, size: int = 20) -> str:
         Human-readable technology name (e.g. ``"React"``, ``"Next.js"``).
     size:
         Icon width/height in pixels.
+    mono:
+        Draw brand marks in ``currentColor`` instead of the brand color.
 
     Returns
     -------
@@ -205,7 +207,7 @@ def get_icon_svg(tech_name: str, size: int = 20) -> str:
                 continue
             icon = getter()
             path_d = _extract_path(icon.raw_svg)
-            color = icon.primary_color  # already includes '#'
+            color = "currentColor" if mono else icon.primary_color  # already includes '#'
             if path_d:
                 return (
                     f'<svg width="{size}" height="{size}" '
@@ -233,20 +235,17 @@ def _candidate_slugs(tech_name: str) -> list:
 
 
 # Deterministic accent per name so the same tech keeps its colour across renders
-_MONOGRAM_COLORS = ("#6366F1", "#0EA5E9", "#10B981", "#F59E0B", "#EC4899", "#8B5CF6", "#14B8A6", "#F97316")
-
-
 def _monogram_svg(tech_name: str, size: int) -> str:
-    """Rounded-square badge with 1-2 initials — used when no brand mark exists.
+    """Outlined square with 1-2 initials — used when no brand mark exists.
 
-    An emoji wrench reads as a missing asset; a monogram reads as intentional.
+    An emoji wrench reads as a missing asset; a monogram reads as intentional. It is drawn in
+    ``currentColor`` so it takes the surrounding text color instead of adding one to the palette.
     """
     words = re.findall(r"[A-Za-z0-9]+", tech_name) or ["?"]
     letters = (words[0][0] + (words[1][0] if len(words) > 1 else words[0][1:2])).upper()
-    color = _MONOGRAM_COLORS[sum(map(ord, tech_name)) % len(_MONOGRAM_COLORS)]
     return (
         f'<svg width="{size}" height="{size}" viewBox="0 0 24 24">'
-        f'<rect width="24" height="24" rx="6" fill="{color}"/>'
-        f'<text x="12" y="16.2" text-anchor="middle" font-family="Inter,Arial,sans-serif" '
-        f'font-size="{11 if len(letters) > 1 else 13}" font-weight="700" fill="#fff">{letters}</text></svg>'
+        '<rect x="1" y="1" width="22" height="22" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/>'
+        '<text x="12" y="16" text-anchor="middle" font-family="inherit" '
+        f'font-size="{10 if len(letters) > 1 else 12}" font-weight="700" fill="currentColor">{letters}</text></svg>'
     )

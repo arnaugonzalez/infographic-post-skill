@@ -46,10 +46,14 @@ def build_brief(spec: dict, style: str | None = None, kind: str = "architecture"
     return design.render_brief(spec, kind=kind, style=style, fmt=fmt, style_dir=style_dir)
 
 
-def inject_logos(html: str) -> str:
-    """Replace every empty data-icon placeholder with an inline brand SVG / monogram."""
+def inject_logos(html: str, brand_colors: bool = False) -> str:
+    """Replace every empty data-icon placeholder with an inline brand SVG / monogram.
+
+    Marks are drawn in the surrounding text color unless ``brand_colors`` is set, so logos do
+    not add colors to a one-accent palette.
+    """
     def repl(m: re.Match) -> str:
-        svg = get_icon_svg(m.group(2), size=40)
+        svg = get_icon_svg(m.group(2), size=40, mono=not brand_colors)
         svg = svg.replace('width="40" height="40"', 'width="100%" height="100%"', 1)
         return f"<span{m.group(1)}>{svg}</span>"
     return re.sub(r'<span([^>]*data-icon="([^"]+)"[^>]*)>\s*</span>', repl, html)
@@ -68,12 +72,12 @@ def screenshot(html_path: Path, png_path: Path, size: tuple[int, int] = design.F
     return png_path
 
 
-def finish(html_path: Path, png_path: Path, fmt: str | None = None) -> Path:
+def finish(html_path: Path, png_path: Path, fmt: str | None = None, brand_colors: bool = False) -> Path:
     """Inject logos into an agent- or API-written page, warn about generic patterns, screenshot it."""
     html = html_path.read_text(encoding="utf-8")
     for warning in lint_html(html):
         print(f"⚠️  generic-design pattern: {warning}", file=sys.stderr)
-    html_path.write_text(inject_logos(html), encoding="utf-8")
+    html_path.write_text(inject_logos(html, brand_colors), encoding="utf-8")
     return screenshot(html_path, png_path, design.canvas_size(fmt))
 
 
@@ -136,6 +140,8 @@ def main() -> None:
                     help=f"archetype: {', '.join(design.ARCHETYPES)} (default {design.DEFAULT_ARCHETYPE})")
     ap.add_argument("--format", dest="fmt", default=None,
                     help=f"canvas: {', '.join(design.FORMATS)} (default {design.DEFAULT_FORMAT})")
+    ap.add_argument("--brand-colors", action="store_true",
+                    help="draw logos in their brand colors (default: the surrounding text color)")
     ap.add_argument("--style-dir", default=None,
                     help="folder of your own .html graphics used as reference (default: the skill's style/)")
     ap.add_argument("--kind", default="architecture")
@@ -145,7 +151,7 @@ def main() -> None:
     args = ap.parse_args()
 
     if args.finish:
-        print(f"✅  PNG → {finish(args.finish, Path(args.output).with_suffix('.png'), args.fmt).resolve()}")
+        print(f"✅  PNG → {finish(args.finish, Path(args.output).with_suffix('.png'), args.fmt, args.brand_colors).resolve()}")
         return
     if not args.spec:
         ap.error("--spec is required unless --finish is used")
