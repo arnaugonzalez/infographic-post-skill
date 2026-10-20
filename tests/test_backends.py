@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -91,10 +92,9 @@ class TestArgvAndStdin:
         assert build_argv("claude", "claude-sonnet-5-5", "P") == [
             "claude", "-p", "--model", "claude-sonnet-5-5", "--tools", "", "--strict-mcp-config"
         ]
-        assert build_argv("agy", None, "P") == ["agy", "-p", "P", "-m", "claude-opus-5-5-low"]
-        assert build_argv("agy", "gemini-4-argon-high", "P") == [
-            "agy", "-p", "P", "-m", "gemini-4-argon-high"
-        ]
+        agy = ["agy", "--print", "P", "--output-format", "json", "--model", "{m}", "--print-timeout", "600s"]
+        assert build_argv("agy", None, "P") == [a.replace("{m}", "claude-opus-5-5-low") for a in agy]
+        assert build_argv("agy", "gemini-4-argon-high", "P") == [a.replace("{m}", "gemini-4-argon-high") for a in agy]
         # codex and opencode omit -m and {model} when model is None
         assert build_argv("codex", None, "P") == ["codex", "exec", "--skip-git-repo-check", "-"]
         assert build_argv("codex", "gpt-5", "P") == [
@@ -112,15 +112,17 @@ class TestArgvAndStdin:
             calls.append((cmd[0], kwargs))
             res = MagicMock()
             res.returncode = 0
-            res.stdout = "<!doctype html><html><body>ok</body></html>"
+            html = "<!doctype html><html><body>ok</body></html>"
+            res.stdout = json.dumps({"status": "SUCCESS", "response": html}) if cmd[0] == "agy" else html
             res.stderr = ""
             return res
 
         monkeypatch.setattr("subprocess.run", fake_run)
         for name in ("claude", "agy", "codex", "copilot", "opencode"):
-            run(name, None, "PROMPT_TEXT")
+            assert "<body>ok</body>" in run(name, None, "PROMPT_TEXT")
 
         by_bin = dict(calls)
+        assert all(kw["cwd"].startswith(tempfile.gettempdir()) for _, kw in calls)
         assert by_bin["claude"].get("input") == "PROMPT_TEXT"
         assert by_bin["codex"].get("input") == "PROMPT_TEXT"
         for name in ("agy", "copilot", "opencode"):
@@ -173,7 +175,7 @@ class TestBuildPrompt:
         spec = {"title": "MySystem", "layers": []}
         prompt = build_prompt("render", "agy", model, spec)
         # 1. Brief content + spec JSON
-        assert "1080×1080" in prompt and '"MySystem"' in prompt
+        assert "1080×1350" in prompt and '"MySystem"' in prompt
         # 2. Backend contract (agy includes working-dir restriction)
         assert "No edites ni crees ficheros en el directorio de trabajo." in prompt
         # 3. Model family note
@@ -213,7 +215,7 @@ class TestClaudeHtmlRendererBackendIntegration:
             res.stderr = ""
             return res
 
-        def fake_screenshot(html_path: Path, png_path: Path) -> Path:
+        def fake_screenshot(html_path: Path, png_path: Path, size=None) -> Path:
             png_path.write_bytes(b"FAKE_PNG")
             return png_path
 

@@ -102,4 +102,4 @@ class TestClaudeHtmlRenderer:
 
     def test_brief_embeds_exact_spec_and_style(self):
         brief = build_brief({"title": "Ünïcode Ñame", "layers": []}, style="modern-light")
-        assert "Ünïcode Ñame" in brief and "clean light" in brief and "1080×1080" in brief
+        assert "Ünïcode Ñame" in brief and "archetype: editorial" in brief and "1080×1350" in brief

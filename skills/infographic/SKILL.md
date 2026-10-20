@@ -40,13 +40,14 @@ Renderers: in-session Claude HTML ($0), Claude Opus HTML, Gemini 3 Pro Image, Ji
 | User says | Command |
 |-----------|---------|
 | "Make an infographic of this project" | `python3 scripts/generate_pretty.py --codebase . --output infographic.png` |
-| "Architecture infographic for LinkedIn" | `python3 scripts/generate_pretty.py --codebase . --style modern-dark --output infographic.png` |
+| "Architecture infographic for LinkedIn" | `python3 scripts/generate_pretty.py --codebase . --style editorial --output infographic.png` |
 | "Compare before vs after" | `python3 scripts/generate_pretty.py --codebase . --infographic-type comparison --output compare.png` |
 | "Explain how auth works as infographic" | `python3 scripts/generate_pretty.py --codebase . --infographic-type feature --output feature.png` |
 | "Show the deployment pipeline" | `python3 scripts/generate_pretty.py --codebase . --infographic-type process --output process.png` |
 | "Cheat sheet of our API" | `python3 scripts/generate_pretty.py --codebase . --infographic-type cheatsheet --output cheatsheet.png` |
-| "Illustrated style" | Add `--style illustrated` to any command above |
-| "Light mode / clean style" | Add `--style modern-light` to any command above |
+| "Make it look less like AI" / "in my style" | Add `--style-dir <folder with the user's own .html graphics>` |
+| "Technical / dark / poster look" | Add `--style blueprint`, `terminal`, `swiss` or `brutalist` |
+| "Banner for GitHub / X" | Add `--format landscape` (1280×640) |
 | "Make it cheap / budget mode" | In Claude Code: in-session mode ($0). Otherwise `--renderer template` |
 | "LinkedIn posts from codebase" | `python3 scripts/generate_posts.py . --language en` |
 | "Quality audit" | `python3 scripts/oss_audit.py --root .` |
@@ -66,13 +67,30 @@ Ask the user or infer from context:
 | `process` | `--infographic-type process` | Pipeline, workflow, sequential stages. |
 | `cheatsheet` | `--infographic-type cheatsheet` | Reference card, API endpoints, config options. |
 
-## Step 2 — Determine the Visual Style
+## Step 2 — Determine the Art Direction
 
-| Style | Flag | Look |
-|-------|------|------|
-| `modern-dark` | `--style modern-dark` | Default. Deep navy, glowing orbs, Stripe/Vercel feel. Best for LinkedIn. |
-| `illustrated` | `--style illustrated` | Rich gradient, clouds/atmosphere, Canva premium feel. Maximum visual impact. |
-| `modern-light` | `--style modern-light` | Clean white, soft shadows, Apple WWDC style. Best for print/docs. |
+The goal is a graphic that does not look like every other AI infographic. Pick ONE archetype
+(full descriptions in `scripts/prompts/archetypes.md`):
+
+| Archetype | Flag | Look |
+|-----------|------|------|
+| `editorial` | `--style editorial` | Default. Paper and ink, display serif, numbered rows, one accent. Magazine page. |
+| `blueprint` | `--style blueprint` | Engineering drawing: grid, monospace labels, outlined boxes, one signal color. |
+| `terminal` | `--style terminal` | One monospace family; command, output and the line that matters. |
+| `swiss` | `--style swiss` | Poster: neo-grotesque, strict grid, a huge number, one primary color. |
+| `brutalist` | `--style brutalist` | Zine: thick borders, heavy grotesque, one loud flat color block. |
+
+Canvas: `--format portrait` (1080×1350, default, best on LinkedIn), `square` (1080×1080) or
+`landscape` (1280×640, GitHub social preview).
+
+The brief makes the model write a `thesis`/`hero`/`archetype`/`cut` comment before drawing, keep
+~12 elements, and avoid a banned list (gradients, glow, glassmorphism, card grids, emoji, purple,
+Inter as display face, generic subtitles). Reference pages in `style/` (the author's own graphics)
+are added to the prompt; point `--style-dir` (or `INFG_STYLE_DIR`) at a folder of the user's own
+`.html` graphics to make the output match their style. `--finish` prints a warning for every
+banned pattern it finds; if there are warnings, fix the HTML and run `--finish` again.
+
+Old names still work: `modern-light` → editorial, `modern-dark` → blueprint, `illustrated` → swiss.
 
 ## Step 3 — Generate
 
@@ -83,7 +101,7 @@ python3 scripts/generate_pretty.py \
   --codebase /path/to/project \
   --title "My App" \
   --infographic-type architecture \
-  --style modern-dark \
+  --style editorial \
   --output infographic.png
 ```
 
@@ -142,7 +160,7 @@ You (the agent) are the designer; only structuring needs a cheap API call.
 python3 scripts/generate_pretty.py --codebase /path/to/project --renderer template \
   --save-spec spec.json --output draft.png
 # 2. Print the design brief
-python3 scripts/claude_html_renderer.py --spec spec.json --style modern-dark --print-brief
+python3 scripts/claude_html_renderer.py --spec spec.json --style editorial --print-brief
 ```
 
 3. Write `page.html` that follows the brief exactly. Use `<span class="logo" data-icon="Tech Name"></span>`
@@ -204,7 +222,9 @@ python3 scripts/generate_pretty.py \
   --codebase <dir>                    # Read and analyze a codebase
   --title "Title"                     # Override title
   --infographic-type <type>           # architecture|comparison|feature|process|cheatsheet
-  --style <style>                     # modern-dark|modern-light|illustrated
+  --style <archetype>                 # editorial|blueprint|terminal|swiss|brutalist
+  --format <canvas>                   # portrait|square|landscape (HTML renderer)
+  --style-dir <dir>                   # your own .html graphics as reference
   --renderer <r>                      # auto|image|claude-html|template (default: auto)
   --save-spec spec.json               # Save structured JSON (for in-session mode)
   --model <gemini-model>              # Image model (default: gemini-3-pro-image, 2K)

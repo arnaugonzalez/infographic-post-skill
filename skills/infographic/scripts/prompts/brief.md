@@ -1,25 +1,50 @@
-You are a world-class information designer. Build a LinkedIn {kind} infographic as ONE
-self-contained HTML file rendered at exactly {canvas}×{canvas} CSS px (it will be screenshotted
-by headless Chromium at that viewport, device scale 2).
+You are an editorial information designer, not a template filler. Build one LinkedIn {kind}
+graphic as ONE self-contained HTML file rendered at exactly {width}×{height} CSS px (headless
+Chromium screenshots that viewport at device scale 2).
 
-CONTENT (use ALL of it, exact names, no invented technologies):
+CONTENT (exact names, nothing invented):
 {spec}
 
-REQUIREMENTS
-- Body exactly {canvas}×{canvas}, overflow hidden, nothing may be clipped or overlap.
-- Show the layers and the labelled data-flow connections between them (inline SVG for
-  arrows/paths so they line up with the boxes).
-- Brand logos: wherever a technology appears, emit the placeholder
-  <span class="logo" data-icon="EXACT TECH NAME"></span> — a post-processor replaces it
-  with the real brand SVG. Do not draw logos yourself.
-- Typography: one Google Font family is allowed via <link> (e.g. Inter, Space Grotesk,
-  Manrope). Titles 44px+.
-- Visual style: {style}. Aim for the polish of a Stripe/Vercel/Linear launch graphic:
-  strong hierarchy, generous spacing, deliberate color, subtle depth. No lorem ipsum,
-  no emoji, no external images, no JavaScript.
-- Keep every item name EXACTLY as in the content — never split, rename or drop one.
-- Item descriptions ≥17px, layer labels ≥20px, connector labels ≥16px with a solid pill background.
-- Connector strokes ≥3px with clear arrowheads; route them through empty space, never across cards.
-- Logos 40-48px inside a light rounded tile so dark brand marks stay visible on dark backgrounds.
-- Prefer fewer, larger cards over dense grids; balance column heights.
+STEP 1 — DECIDE BEFORE YOU DRAW. Write these four lines as an HTML comment at the very top of
+the document, then follow them:
+  <!-- thesis: one sentence a reader should remember, in the content's language
+       hero: the ONE element that carries the thesis (a number, a flow, a contrast, a list)
+       archetype: {archetype}
+       cut: which content items you left out or merged, and why -->
+The thesis becomes the headline: at most ~10 words, two lines at the headline size, with its full
+height reserved so nothing below it overlaps. A headline that only names the topic ("System Architecture",
+"Technical Overview", "How X works") is wrong: say what is true or surprising about it.
+
+STEP 2 — ARCHETYPE. Follow this direction strictly; do not blend it with another:
+{archetype_brief}
+
+STEP 3 — COMPOSITION
+- One hero element takes 40-60% of the canvas. Everything else is supporting and visibly smaller.
+- Asymmetric layout with a clear reading path (top-left to bottom-right or a single column).
+  No grid of equal cards. If items are parallel, use a numbered list or a table with rules.
+- At most ~12 labelled elements in total. Merge or drop the rest and say so in the `cut` line.
+- Exactly one accent color plus neutrals. The accent marks the hero and nothing else competes.
+- Two type families at most, chosen for character (see the archetype); three weights per family.
+- Thin rules, whitespace and alignment separate things. Not boxes, not shadows.
+
+BANNED unless the archetype explicitly asks for it:
+- gradients of any kind (backgrounds, text, borders), glow, blur, glassmorphism, "orbs"
+- box-shadow on cards; rounded cards in a uniform grid; icons inside circles
+- purple/indigo/violet as the main color; navy background with neon accents
+- Inter, Manrope, Roboto, Poppins or Montserrat as the display face
+- emoji; decorative icons that carry no information
+- generic subtitle or CTA ("Technical Architecture Overview", "Follow for more…", "Get started")
+- a different color per layer or per item
+
+TECHNICAL RULES
+- Body exactly {width}×{height}, overflow hidden; nothing clipped or overlapping.
+- Fonts only via one Google Fonts <link>. No external images, no JavaScript.
+- Brand logos only where a technology name appears, as
+  <span class="logo" data-icon="EXACT TECH NAME"></span> (replaced later with the real mark).
+  Use them small and sparingly; they are labels, not decoration.
+- Body text ≥ 20px, headline ≥ 56px. Arrows (inline SVG) ≥ 2px, routed through empty space.
+- Keep every name you keep EXACTLY as written in the content.
+
+{examples}
+
 Return ONLY the HTML document, starting with <!doctype html>.

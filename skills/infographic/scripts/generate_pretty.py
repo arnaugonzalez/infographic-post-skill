@@ -247,6 +247,7 @@ def _vertex_policy_warning() -> None:
 # ── Reuse layer-string parser ─────────────────────────────────────────────────
 
 sys.path.insert(0, str(_SKILL_DIR / "scripts"))
+import design as _design  # noqa: E402
 try:
     from generate_linkedin_arch import layers_from_string  # type: ignore
 except ImportError:
@@ -1214,9 +1215,14 @@ if __name__ == "__main__":
                          "if ANTHROPIC_API_KEY is set, else the free Jinja template")
     ap.add_argument("--save-spec", default="",
                     help="Write the structured JSON here (reuse it with claude_html_renderer.py)")
-    ap.add_argument("--style", default="modern-dark",
-                    choices=["modern-dark", "modern-light", "illustrated"],
-                    help="Visual style preset (default: modern-dark)")
+    ap.add_argument("--style", default=None,
+                    choices=[*_design.ARCHETYPES, *_design.LEGACY_STYLES],
+                    help=f"Archetype for the HTML renderer (default: {_design.DEFAULT_ARCHETYPE}); "
+                         "the image renderer maps it to its own presets")
+    ap.add_argument("--format", dest="fmt", default=None, choices=list(_design.FORMATS),
+                    help=f"Canvas for the HTML renderer (default: {_design.DEFAULT_FORMAT})")
+    ap.add_argument("--style-dir", default=None,
+                    help="Folder of your own .html graphics used as reference (default: the skill's style/)")
     args = ap.parse_args()
 
     # Build config dict -------------------------------------------------------
@@ -1303,22 +1309,24 @@ if __name__ == "__main__":
                     print(backends.build_prompt(
                         "render", "session", resolved_model, structured_data,
                         style=args.style, kind=args.infographic_type,
+                        fmt=args.fmt, style_dir=args.style_dir,
                     ))
                     html_out = Path(args.output).with_suffix(".html")
                     print(
                         f"\n# Host agent: write the HTML document to {html_out}, then run:\n"
                         f"python3 scripts/claude_html_renderer.py --finish {html_out} --output {args.output}"
+                        + (f" --format {args.fmt}" if args.fmt else "")
                     )
                     sys.exit(0)
                 from claude_html_renderer import render_with_claude  # type: ignore
                 print(f"🎨  Claude HTML renderer ({args.infographic_type} / {args.style}) via {backend}...")
                 png_path, cl_usage = render_with_claude(
                     structured_data, args.output, style=args.style, kind=args.infographic_type,
-                    model=resolved_model, backend=backend,
+                    model=resolved_model, backend=backend, fmt=args.fmt, style_dir=args.style_dir,
                 )
                 print(f"  Model: {cl_usage['model']}  in={cl_usage['input_tokens']} "
                       f"out={cl_usage['output_tokens']}  cost=${cl_usage['total_cost']:.3f}")
-                print(f"✅  AI Infographic → {png_path.resolve()}  (2160×2160 px)")
+                print(f"✅  AI Infographic → {png_path.resolve()}")
                 sys.exit(0)
 
             # ── Choose rendering path: AI image vs HTML template ──────────
@@ -1340,7 +1348,7 @@ if __name__ == "__main__":
                 img_prompt = _build_v2_image_prompt(
                     structured_data,
                     infographic_type=args.infographic_type,
-                    style=args.style,
+                    style=args.style if args.style in _design.LEGACY_STYLES else "modern-light",
                 )
                 client, backend = _build_genai_client(image_model)
                 if backend == "vertex":

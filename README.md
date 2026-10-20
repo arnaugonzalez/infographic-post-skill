@@ -194,24 +194,31 @@ python scripts/generate_pretty.py --codebase . --infographic-type cheatsheet
 
 **What to ask Claude:** "Create a cheat sheet of our API endpoints" / "Make a reference card for the configuration options"
 
-## Visual Styles
+## Art Direction
 
-| Style | Look | Best For |
-|-------|------|----------|
-| `modern-dark` | Deep navy gradient, glowing orbs, Stripe/Vercel feel | LinkedIn posts (default) |
-| `modern-light` | Clean white, soft shadows, Apple WWDC style | Print, documentation |
-| `illustrated` | Rich gradient with clouds/atmosphere, Canva premium feel | Maximum visual impact |
+Most AI infographics look the same: navy background, purple glow, a grid of rounded cards, emoji.
+This skill makes the model commit to one archetype and a one-sentence thesis before it draws,
+keeps it to about twelve elements, bans the usual patterns, and shows it reference pages from a
+folder of real graphics so it copies their restraint instead of the average.
+
+| Archetype | Look |
+|-----------|------|
+| `editorial` (default) | Paper and ink, display serif, numbered rows, one accent color |
+| `blueprint` | Engineering drawing: grid, monospace labels, outlined boxes |
+| `terminal` | One monospace family; a command, its output and the line that matters |
+| `swiss` | Poster: neo-grotesque, strict grid, one huge number |
+| `brutalist` | Zine: thick borders, heavy type, one loud color block |
 
 ```bash
-# Dark mode (default)
-python scripts/generate_pretty.py --codebase . --style modern-dark
-
-# Light mode
-python scripts/generate_pretty.py --codebase . --style modern-light
-
-# Illustrated (most visual)
-python scripts/generate_pretty.py --codebase . --style illustrated
+python scripts/generate_pretty.py --codebase . --style editorial --format portrait
+# Use your own graphics as the reference instead of the bundled ones
+python scripts/generate_pretty.py --codebase . --style-dir ~/my-posts
 ```
+
+Formats: `portrait` 1080×1350 (default), `square` 1080×1080, `landscape` 1280×640. When the HTML is
+finished, `--finish` warns about every banned pattern it still finds (gradients, glow, card grids,
+emoji, purple, generic fonts). The pre-0.2 names `modern-light`, `modern-dark` and `illustrated`
+map to `editorial`, `blueprint` and `swiss`.
 
 ## Choosing a backend and model
 
@@ -290,7 +297,9 @@ python scripts/generate_pretty.py \
   --codebase <dir>              # Read and analyze a codebase directory
   --title "My App"              # Override the title (default: derived from directory name)
   --infographic-type <type>     # architecture|comparison|feature|process|cheatsheet
-  --style <style>               # modern-dark|modern-light|illustrated
+  --style <archetype>           # editorial|blueprint|terminal|swiss|brutalist
+  --format <canvas>             # portrait|square|landscape (HTML renderer)
+  --style-dir <dir>             # your own .html graphics as reference
   --model <gemini-model>        # Image model (default: gemini-3.1-flash-image-preview)
   --llm-model <model>           # LLM for structuring (default: from INFG_LLM_MODEL env)
   --output <path>               # Output file path

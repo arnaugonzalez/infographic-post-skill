@@ -1,0 +1,59 @@
+"""Art direction: archetypes, formats, reference pages and the generic-design linter."""
+import pytest
+
+import design
+from slop_lint import lint_html
+
+DECIDED = "<!-- thesis: x\n hero: y\n archetype: editorial\n cut: none -->"
+
+
+class TestDesign:
+    def test_five_archetypes_parsed(self):
+        assert set(design.ARCHETYPES) == {"editorial", "blueprint", "terminal", "swiss", "brutalist"}
+        assert all(len(body) > 100 for body in design.ARCHETYPES.values())
+
+    @pytest.mark.parametrize("legacy,archetype", list(design.LEGACY_STYLES.items()))
+    def test_legacy_styles_map_to_archetypes(self, legacy, archetype):
+        assert design.resolve_archetype(legacy) == archetype
+
+    def test_unknown_style_and_format_fail_loudly(self):
+        with pytest.raises(ValueError, match="editorial"):
+            design.resolve_archetype("glassmorphism")
+        with pytest.raises(ValueError, match="portrait"):
+            design.canvas_size("a4")
+
+    def test_brief_has_archetype_canvas_and_examples(self):
+        brief = design.render_brief({"title": "Ñandú {x}"}, style="terminal", fmt="landscape")
+        assert "archetype: terminal" in brief and "1280×640" in brief
+        assert "Ñandú {x}" in brief and "REFERENCE PAGES" in brief
+
+    def test_custom_style_dir_replaces_examples(self, tmp_path):
+        (tmp_path / "mine.html").write_text("<html>MY-OWN-STYLE</html>", encoding="utf-8")
+        brief = design.render_brief({}, style_dir=tmp_path)
+        assert "MY-OWN-STYLE" in brief and "Fraunces" not in brief.split("REFERENCE PAGES")[1]
+
+    def test_empty_style_dir_drops_examples_block(self, tmp_path):
+        assert "REFERENCE PAGES" not in design.render_brief({}, style_dir=tmp_path)
+
+
+class TestSlopLint:
+    def test_clean_editorial_page_passes(self):
+        html = (DECIDED + '<link href="https://fonts.googleapis.com/css2?family=Fraunces&family=Inter">'
+                "<style>h1{font-family:Fraunces}</style>")
+        assert lint_html(html) == []
+
+    def test_generic_ai_page_is_flagged(self):
+        html = ('<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400">'
+                "<style>body{background:linear-gradient(#0a0f1e,#4f46e5)}"
+                ".c{box-shadow:0 4px 20px #000;border-radius:16px}.d{border-radius:16px}"
+                ".e{border-radius:16px}.f{border-radius:16px}h1{background-clip:text}</style>"
+                "<p>Technical Architecture Overview 🚀</p>")
+        found = set(lint_html(html))
+        assert {"gradient", "box-shadow", "gradient text", "purple/indigo palette", "emoji",
+                "generic subtitle / CTA", "only generic fonts (Inter)",
+                "many rounded cards (border-radius ≥ 12px)",
+                "missing thesis/hero/archetype comment"} <= found
+
+    def test_shipped_reference_pages_have_no_banned_patterns(self):
+        for page in design.load_examples():
+            assert [w for w in lint_html(page) if not w.startswith("missing")] == []

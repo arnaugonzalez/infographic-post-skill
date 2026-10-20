@@ -11,16 +11,11 @@ import os
 import re
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 _SCRIPTS_DIR = Path(__file__).resolve().parent
 _PROMPTS_DIR = _SCRIPTS_DIR / "prompts"
-
-STYLE_BRIEFS = {
-    "modern-dark": "modern dark — deep navy/indigo background, one glowing accent color per layer, glassy cards",
-    "modern-light": "clean light — white/off-white background, soft shadows, crisp accent colors, Apple keynote feel",
-    "illustrated": "rich gradient atmosphere — layered gradients, soft light, depth, premium editorial poster feel",
-}
 
 NO_BACKEND_MESSAGE = (
     "No AI backend found. Install one of the supported subscription CLIs or configure an API key:\n"
@@ -74,8 +69,11 @@ BACKENDS: dict[str, dict] = {
     },
     "agy": {
         "binary": "agy",
-        "argv": ["agy", "-p", "{prompt}", "-m", "{model}"],
+        # agy needs --output-format json in print mode; the answer is in the last JSON line's "response".
+        "argv": ["agy", "--print", "{prompt}", "--output-format", "json", "--model", "{model}",
+                 "--print-timeout", "600s"],
         "stdin": False,
+        "json_field": "response",
         "default_model": "claude-opus-5-5-low",
         "family_of": lambda m: family_of(m, "claude"),
         "timeout_s": 600,
@@ -208,11 +206,26 @@ def run(backend: str, model: str | None, prompt: str) -> str:
     else:
         kwargs["stdin"] = subprocess.DEVNULL
 
-    res = subprocess.run(cmd, **kwargs)
+    # Agentic CLIs run in an empty scratch dir so they cannot touch the user's project.
+    with tempfile.TemporaryDirectory(prefix="infg-") as scratch:
+        res = subprocess.run(cmd, cwd=scratch, **kwargs)
     if res.returncode != 0:
         stderr = (res.stderr or "")[-2000:]
         raise BackendError(backend, stderr)
-    return res.stdout
+    field = spec.get("json_field")
+    return _json_field(res.stdout, field) if field else res.stdout
+
+
+def _json_field(stdout: str, field: str) -> str:
+    """Value of ``field`` in the last JSON object line of ``stdout``."""
+    for line in reversed(stdout.splitlines()):
+        line = line.strip()
+        if line.startswith("{"):
+            try:
+                return str(json.loads(line)[field])
+            except (json.JSONDecodeError, KeyError):
+                continue
+    raise BackendError("json", f"no JSON line with {field!r} in output: {stdout[-500:]}")
 
 
 def extract_html(text: str) -> str:
@@ -246,9 +259,10 @@ def build_prompt(
     model: str | None,
     spec: dict,
     *,
-    style: str = "modern-dark",
+    style: str | None = None,
     kind: str = "architecture",
-    canvas: int = 1080,
+    fmt: str | None = None,
+    style_dir: str | None = None,
 ) -> str:
     """Combine task brief + backend contract + model-family note + spec JSON."""
     b_name = (backend or "claude").lower()
@@ -264,13 +278,8 @@ def build_prompt(
         if report_text:
             base = f"{base}\n\nSPEC JSON:\n{spec_json}"
     else:
-        brief_tmpl = (_PROMPTS_DIR / "brief.md").read_text(encoding="utf-8").strip()
-        base = brief_tmpl.format(
-            kind=kind,
-            canvas=canvas,
-            spec=spec_json,
-            style=STYLE_BRIEFS.get(style, style),
-        )
+        from design import render_brief
+        base = render_brief(spec, kind=kind, style=style, fmt=fmt, style_dir=style_dir)
 
     backend_file = _PROMPTS_DIR / "backends" / f"{b_name}.md"
     if not backend_file.exists():
