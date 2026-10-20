@@ -6,11 +6,16 @@ The template engine handles all visual design.
 """
 from __future__ import annotations
 
+import argparse
 import json
+import os
 import re
 import sys
-import os
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import backends  # noqa: E402
 
 _SKILL_DIR = Path(__file__).resolve().parent.parent
 _ENV_PATH = _SKILL_DIR / ".env"
@@ -116,33 +121,168 @@ def _call_openrouter(prompt: str, model: str, api_key: str) -> str:
     return data["choices"][0]["message"]["content"]
 
 
+def _call_anthropic(prompt: str, model: str, api_key: str) -> str:
+    """Call the Claude Messages API (low effort: extraction, not reasoning)."""
+    import anthropic
+    client = anthropic.Anthropic(api_key=api_key)
+    msg = client.messages.create(
+        model=model,
+        max_tokens=16000,
+        output_config={"effort": "low"},
+        messages=[{"role": "user", "content": prompt}],
+    )
+    if msg.stop_reason == "refusal":
+        print(f"❌ {model} declined the request: {msg.stop_details}")
+        sys.exit(1)
+    return "".join(b.text for b in msg.content if b.type == "text")
+
+
+def _call_gemini(prompt: str, model: str, api_key: str) -> str:
+    """Call Gemini via AI Studio with JSON output mode."""
+    from google import genai
+    from google.genai import types
+    client = genai.Client(api_key=api_key)
+    resp = client.models.generate_content(
+        model=model,
+        contents=prompt,
+        config=types.GenerateContentConfig(response_mime_type="application/json"),
+    )
+    return resp.text or ""
+
+
+# Defaults chosen by the Oct 2026 benchmark (benchmark/RESULTS.md): on the project
+# digest both extract every sub-project for ≤ $0.012 per call.
+DEFAULT_MODELS = {"anthropic": "claude-haiku-5-5", "gemini": "gemini-3.8-flash"}
+
+_CALLERS = {"openrouter": "_call_openrouter", "anthropic": "_call_anthropic", "gemini": "_call_gemini"}
+_SLASH_PROVIDER = next(iter(_CALLERS))
+
+
+def resolve_provider(model: str | None = None) -> tuple[str, str, str]:
+    """Return (provider, model, api_key) from the model name and available keys.
+
+    ``claude-*`` → Anthropic, ``gemini-*`` → Gemini (AI Studio), ``vendor/model`` →
+    slash-prefixed provider (forbidden for ``gemini*``/``google/*``). With no model:
+    ``INFG_LLM_MODEL``, else the first provider with a key (Anthropic, Gemini);
+    raises ``SystemExit`` when neither is configured.
+    """
+    _load_dotenv(_ENV_PATH)
+    keys = {
+        "anthropic": os.environ.get("ANTHROPIC_API_KEY", "").strip(),
+        "gemini": os.environ.get("INFG_API_KEY", "").strip(),
+        _SLASH_PROVIDER: (os.environ.get("INFG_OPENROUTER_API_KEY", "")
+                          or os.environ.get("INFG_LLM_API_KEY", "")).strip(),
+    }
+    model = (model or os.environ.get("INFG_LLM_MODEL", "")).strip()
+    if not model:
+        for provider in ("anthropic", "gemini"):
+            if keys[provider]:
+                return provider, DEFAULT_MODELS[provider], keys[provider]
+        raise SystemExit(backends.NO_BACKEND_MESSAGE)
+    if "/" in model:
+        if model.lower().startswith("google/") or "gemini" in model.lower():
+            raise SystemExit("Gemini/Google models must use AI Studio (INFG_API_KEY) or a CLI backend.")
+        provider = _SLASH_PROVIDER
+    elif model.startswith("claude"):
+        provider = "anthropic"
+    else:
+        provider = "gemini"
+    return provider, model, keys[provider]
+
+
+def _validate_and_default(data: dict) -> dict:
+    if "layers" not in data or not isinstance(data["layers"], list):
+        raise ValueError("Missing or invalid 'layers' key")
+    if "title" not in data:
+        raise ValueError("Missing 'title' key")
+    data.setdefault("subtitle", "Technical Architecture Overview")
+    data.setdefault("connections", [])
+    data.setdefault("footer_cta", "Follow for more software architecture content")
+    data.setdefault("footer_summary", "")
+    return data
+
+
+def _session_spec_from_report(codebase_report: dict) -> dict:
+    """Build a structured spec locally for --backend session without paid API calls."""
+    if "layers" in codebase_report and isinstance(codebase_report["layers"], list):
+        spec = dict(codebase_report)
+        spec.setdefault("title", codebase_report.get("title") or "System Architecture")
+        return _validate_and_default(spec)
+    langs = codebase_report.get("languages") or {}
+    manifests = codebase_report.get("manifests") or []
+    items = [{"name": str(k), "description": f"{v} source files"} for k, v in list(langs.items())[:5]]
+    if not items and manifests:
+        items = [{"name": Path(m).name, "description": m} for m in manifests[:5]]
+    if not items:
+        items = [{"name": "Application", "description": "Core project module"}]
+    return _validate_and_default({
+        "title": codebase_report.get("title") or "System Architecture",
+        "subtitle": "Technical Architecture Overview",
+        "layers": [{"label": "CORE", "items": items}],
+        "connections": [],
+        "summary_text": codebase_report.get("summary_text", ""),
+    })
+
+
 def structure_codebase(
     codebase_report: dict,
     model: str | None = None,
     api_key: str | None = None,
     max_retries: int = 2,
+    backend: str | None = None,
 ) -> dict:
-    """Convert a codebase report into structured infographic data.
-    
+    """Convert a codebase report (or project digest) into structured infographic data.
+
     Parameters
     ----------
-    codebase_report : dict from read_codebase()
-    model : OpenRouter model identifier (default: from INFG_LLM_MODEL env)
-    api_key : OpenRouter API key (default: from INFG_OPENROUTER_API_KEY env)
+    codebase_report : dict from project_digest.build_digest() or read_codebase()
+    model : model identifier (default: resolved from backend or environment)
+    api_key : key for direct API mode (default: from .env)
     max_retries : number of retries on JSON parse failure
-    
+    backend : ``auto|session|claude|agy|codex|copilot|opencode|api``
+
     Returns a dict ready for template_renderer.render_infographic()
     """
-    _load_dotenv(_ENV_PATH)
-    
-    if not model:
-        model = os.environ.get("INFG_LLM_MODEL", "google/gemini-2.0-flash-001").strip()
+    summary = codebase_report.get("summary_text", json.dumps(codebase_report, indent=2))
+    prompt = _STRUCTURER_PROMPT.format(codebase_report=summary)
+
+    use_api_directly = (
+        api_key is not None
+        or backend == "api"
+        or (backend is None and bool(model and "/" in model))
+    )
+
+    if not use_api_directly and backend is not None:
+        resolved_backend, resolved_model = backends.resolve(backend, model)
+        if resolved_backend == "session":
+            return _session_spec_from_report(codebase_report)
+        if resolved_backend != "api":
+            for attempt in range(max_retries + 1):
+                print(f"🤖 Structuring codebase data via {resolved_backend} ({resolved_model or 'default'})...")
+                raw = backends.run(resolved_backend, resolved_model, prompt)
+                cleaned = _strip_json_fences(raw)
+                try:
+                    data = _validate_and_default(json.loads(cleaned))
+                    print(f"✅ Structured: {len(data['layers'])} layers, "
+                          f"{sum(len(l.get('items', [])) for l in data['layers'])} items")
+                    return data
+                except (json.JSONDecodeError, ValueError) as e:
+                    if attempt < max_retries:
+                        print(f"⚠️ JSON parse failed (attempt {attempt+1}): {e} — retrying...")
+                    else:
+                        print(f"❌ Failed to parse LLM response after {max_retries+1} attempts: {e}")
+                        sys.exit(1)
+        model = resolved_model
+
+    provider, model, env_key = resolve_provider(model)
+    api_key = api_key or env_key
     if not api_key:
-        api_key = os.environ.get("INFG_OPENROUTER_API_KEY", "").strip()
-    if not api_key:
-        print("❌ Set INFG_OPENROUTER_API_KEY in .env or pass api_key parameter")
+        env_name = {"anthropic": "ANTHROPIC_API_KEY", "gemini": "INFG_API_KEY",
+                    _SLASH_PROVIDER: "INFG_OPENROUTER_API_KEY"}[provider]
+        print(f"❌ Set {env_name} in .env (model {model!r} uses {provider})")
         sys.exit(1)
-    
+    call = globals()[_CALLERS[provider]]
+
     # Quality warning
     try:
         from model_quality import classify_model_quality, quality_warning
@@ -150,28 +290,14 @@ def structure_codebase(
         quality_warning(model, tier, context="infographic")
     except ImportError:
         pass
-    
-    # Build prompt
-    summary = codebase_report.get("summary_text", json.dumps(codebase_report, indent=2))
-    prompt = _STRUCTURER_PROMPT.format(codebase_report=summary)
-    
+
     # Call LLM with retry
     for attempt in range(max_retries + 1):
         print(f"🤖 Structuring codebase data via {model}...")
-        raw = _call_openrouter(prompt, model, api_key)
+        raw = call(prompt, model, api_key)
         cleaned = _strip_json_fences(raw)
         try:
-            data = json.loads(cleaned)
-            # Validate required keys
-            if "layers" not in data or not isinstance(data["layers"], list):
-                raise ValueError("Missing or invalid 'layers' key")
-            if "title" not in data:
-                raise ValueError("Missing 'title' key")
-            # Set defaults
-            data.setdefault("subtitle", "Technical Architecture Overview")
-            data.setdefault("connections", [])
-            data.setdefault("footer_cta", "Follow for more software architecture content")
-            data.setdefault("footer_summary", "")
+            data = _validate_and_default(json.loads(cleaned))
             print(f"✅ Structured: {len(data['layers'])} layers, {sum(len(l.get('items',[])) for l in data['layers'])} items")
             return data
         except (json.JSONDecodeError, ValueError) as e:
@@ -181,3 +307,25 @@ def structure_codebase(
                 print(f"❌ Failed to parse LLM response after {max_retries+1} attempts: {e}")
                 print(f"   Raw response: {raw[:300]}...")
                 sys.exit(1)
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description="Structure a codebase digest into infographic JSON")
+    ap.add_argument("codebase", nargs="?", default=".", help="Path to codebase directory")
+    ap.add_argument("--backend", default=None, help="Backend: auto|session|claude|agy|codex|copilot|opencode|api")
+    ap.add_argument("--model", default=None, help="Model override")
+    ap.add_argument("--output", default="", help="Write JSON output to file instead of stdout")
+    args = ap.parse_args()
+    from project_digest import build_digest
+    digest = build_digest(args.codebase)
+    backend, model = backends.resolve(args.backend, args.model)
+    data = structure_codebase(digest, model=model, backend=backend)
+    out_text = json.dumps(data, indent=2, ensure_ascii=False)
+    if args.output:
+        Path(args.output).write_text(out_text, encoding="utf-8")
+    else:
+        print(out_text)
+
+
+if __name__ == "__main__":
+    main()

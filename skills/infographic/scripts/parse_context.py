@@ -392,7 +392,7 @@ _EXCLUDED_DIR_NAMES: frozenset[str] = frozenset({
     "docs", "doc", "wiki", "assets", "static", "public", "media",
     "linkedin_assets", "infographics", "designs",
     # Meta
-    "scripts", "scripts_emotionai", "tools", "examples", "samples",
+    "scripts", "tools", "examples", "samples",
     "tests", "test", "e2e", ".planning",
 })
 
@@ -453,7 +453,7 @@ def _display_name_for_dir(dir_name: str, project_name: str, category: str, dirpa
     """
     name = dir_name
 
-    # Strip project prefix (e.g. emotionai-api → api, myapp_backend → backend)
+    # Strip project prefix (e.g. acme-api → api, myapp_backend → backend)
     if project_name:
         pn = project_name.lower().replace("-", "").replace("_", "")
         slug = name.lower().replace("-", "").replace("_", "")

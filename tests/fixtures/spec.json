@@ -1,0 +1,16 @@
+{
+  "title": "Demo Platform",
+  "subtitle": "Technical Architecture Overview",
+  "layers": [
+    {
+      "label": "BACKEND",
+      "items": [
+        {"name": "FastAPI", "description": "Async HTTP service"},
+        {"name": "PostgreSQL", "description": "Relational store"}
+      ]
+    }
+  ],
+  "connections": [],
+  "footer_cta": "Follow for more software architecture content",
+  "footer_summary": "Demo architecture"
+}

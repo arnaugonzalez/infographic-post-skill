@@ -12,29 +12,26 @@ description: >
     "infografía", "infográfico", "diagrama de arquitectura", "para linkedin",
     "infographie", "Infografik", "infografica"
   VERSIONING — when the user says "next version" / "nueva version" / "new version"
-    in any language, run ${CLAUDE_SKILL_DIR}/scripts/version_output.py before generating.
+    in any language, run scripts/version_output.py before generating.
+allowed-tools:
+  - Bash
+  - Write
+  - Read
+dependencies:
+  python: ">=3.9"
+  pip:
+    - matplotlib>=3.7
+    - Pillow>=10.0
+    - numpy>=1.24
+    - requests>=2.28
+    - simplepycons>=1.0
+    - jinja2>=3.1
 ---
 
 # Infographic Skill
 
 Generate publication-ready infographics from codebases, data, or text.
-Three rendering modes: AI Image (★★★★★), HTML Template (★★★★☆), Matplotlib (★★★☆☆).
-
-## Setup (once)
-
-`${CLAUDE_SKILL_DIR}` is this skill's folder; every script lives under it. Run the commands from the
-user's project, not from the skill folder. Needs Python >=3.9. Before the first run, check the
-dependencies and ask the user before installing them:
-
-```bash
-python3 -c "import matplotlib, PIL, jinja2, simplepycons, google.genai" \
-  || pip install -r ${CLAUDE_SKILL_DIR}/requirements.txt
-```
-
-API keys come from the environment (`INFG_API_KEY`, `INFG_OPENROUTER_API_KEY`, see below) or from
-`${CLAUDE_SKILL_DIR}/.env`. Never print them. Without keys, use the offline Matplotlib mode.
-The AI modes send a summary of the user's code (secrets redacted) to OpenRouter or Google: say
-so before the first AI run.
+Renderers: in-session Claude HTML ($0), Claude Opus HTML, Gemini 3 Pro Image, Jinja template, Matplotlib.
 
 ---
 
@@ -42,18 +39,18 @@ so before the first AI run.
 
 | User says | Command |
 |-----------|---------|
-| "Make an infographic of this project" | `python3 ${CLAUDE_SKILL_DIR}/scripts/generate_pretty.py --codebase . --output infographic.png` |
-| "Architecture infographic for LinkedIn" | `python3 ${CLAUDE_SKILL_DIR}/scripts/generate_pretty.py --codebase . --style modern-dark --output infographic.png` |
-| "Compare before vs after" | `python3 ${CLAUDE_SKILL_DIR}/scripts/generate_pretty.py --codebase . --infographic-type comparison --output compare.png` |
-| "Explain how auth works as infographic" | `python3 ${CLAUDE_SKILL_DIR}/scripts/generate_pretty.py --codebase . --infographic-type feature --output feature.png` |
-| "Show the deployment pipeline" | `python3 ${CLAUDE_SKILL_DIR}/scripts/generate_pretty.py --codebase . --infographic-type process --output process.png` |
-| "Cheat sheet of our API" | `python3 ${CLAUDE_SKILL_DIR}/scripts/generate_pretty.py --codebase . --infographic-type cheatsheet --output cheatsheet.png` |
+| "Make an infographic of this project" | `python3 scripts/generate_pretty.py --codebase . --output infographic.png` |
+| "Architecture infographic for LinkedIn" | `python3 scripts/generate_pretty.py --codebase . --style modern-dark --output infographic.png` |
+| "Compare before vs after" | `python3 scripts/generate_pretty.py --codebase . --infographic-type comparison --output compare.png` |
+| "Explain how auth works as infographic" | `python3 scripts/generate_pretty.py --codebase . --infographic-type feature --output feature.png` |
+| "Show the deployment pipeline" | `python3 scripts/generate_pretty.py --codebase . --infographic-type process --output process.png` |
+| "Cheat sheet of our API" | `python3 scripts/generate_pretty.py --codebase . --infographic-type cheatsheet --output cheatsheet.png` |
 | "Illustrated style" | Add `--style illustrated` to any command above |
 | "Light mode / clean style" | Add `--style modern-light` to any command above |
-| "Make it cheap / budget mode" | Add `--legacy-html` to use HTML template instead of AI image |
-| "LinkedIn posts from codebase" | `python3 ${CLAUDE_SKILL_DIR}/scripts/generate_posts.py . --language en` |
-| "Quality audit" | `python3 ${CLAUDE_SKILL_DIR}/scripts/oss_audit.py --root .` |
-| "Pretty KPI dashboard" | `python3 ${CLAUDE_SKILL_DIR}/scripts/generate_pretty.py --text "Revenue $2.4M, NPS 72" --type dashboard --output kpis.png` |
+| "Make it cheap / budget mode" | In Claude Code: in-session mode ($0). Otherwise `--renderer template` |
+| "LinkedIn posts from codebase" | `python3 scripts/generate_posts.py . --language en` |
+| "Quality audit" | `python3 scripts/oss_audit.py --root .` |
+| "Pretty KPI dashboard" | `python3 scripts/generate_pretty.py --text "Revenue $2.4M, NPS 72" --type dashboard --output kpis.png` |
 
 ---
 
@@ -82,7 +79,7 @@ Ask the user or infer from context:
 ### From a codebase (most common)
 
 ```bash
-python3 ${CLAUDE_SKILL_DIR}/scripts/generate_pretty.py \
+python3 scripts/generate_pretty.py \
   --codebase /path/to/project \
   --title "My App" \
   --infographic-type architecture \
@@ -91,22 +88,21 @@ python3 ${CLAUDE_SKILL_DIR}/scripts/generate_pretty.py \
 ```
 
 The pipeline:
-1. `read_codebase.py` scans the project (skips node_modules, .git, binaries)
-2. `content_structurer.py` sends report to LLM → gets structured JSON (layers, connections)
-3. `image_prompt_builder.py` builds a designer-brief prompt with brand icon descriptions
-4. Gemini image model generates a 1080×1080px publication-quality PNG (~$0.04)
-5. Falls back to HTML template if Gemini unavailable
+1. `project_digest.py` builds an architecture-first digest (tree, manifests, README) — ~1.5–5k tokens
+2. `content_structurer.py` sends it to an LLM → structured JSON (Haiku 5.5 ~$0.001 / Gemini 3.8 Flash ~$0.012)
+3. The renderer chosen by `--renderer` produces the PNG (see Rendering Modes)
+4. Falls back to the HTML template if the image API fails
 
 ### From inline data
 
 ```bash
 # Quick architecture from text
-python3 ${CLAUDE_SKILL_DIR}/scripts/generate_pretty.py \
+python3 scripts/generate_pretty.py \
   --layers "Frontend:React,Next.js|Backend:FastAPI|Database:PostgreSQL,Redis" \
   --title "My App" --output infographic.png
 
 # KPI dashboard
-python3 ${CLAUDE_SKILL_DIR}/scripts/generate_pretty.py \
+python3 scripts/generate_pretty.py \
   --text "Revenue $2.4M (+18%), NPS 72, Churn 2.1%" \
   --type dashboard --title "Q3 KPIs" --output kpis.png
 ```
@@ -114,7 +110,7 @@ python3 ${CLAUDE_SKILL_DIR}/scripts/generate_pretty.py \
 ### LinkedIn posts from codebase
 
 ```bash
-python3 ${CLAUDE_SKILL_DIR}/scripts/generate_posts.py /path/to/project --language en
+python3 scripts/generate_posts.py /path/to/project --language en
 ```
 
 Generates two posts (technical + business angle) → stdout + `linkedin_posts.md`.
@@ -123,49 +119,96 @@ Generates two posts (technical + business angle) → stdout + `linkedin_posts.md
 
 ## Rendering Modes
 
-### 🎨 AI Image (default — best quality)
+Choose with `--renderer` (default `auto`). Scores: blind benchmark, 3 real codebases × 2 judges,
+mean of 6 criteria out of 10 (`benchmark/RESULTS.md`, Oct 2026).
 
-**Cost:** ~$0.04/image | **Requires:** `INFG_API_KEY` (Google AI Studio)
+| Renderer | Flag | $/image | Score | Pick it when |
+|---|---|---|---|---|
+| **In-session Claude HTML** | see below | **$0** | ≈7.0 | You are running inside Claude Code — always prefer this |
+| Claude HTML (Opus 5.5, effort low) | `--renderer claude-html` | ~$0.18 | 7.00 | Exact names/completeness matter (technical audience) |
+| Gemini image (`gemini-3-pro-image`, 2K) | `--renderer image` | $0.134 | 6.97 | Maximum visual punch, real-looking logos |
+| Jinja template | `--renderer template` | $0 | 5.14 | Offline / no keys (small text — weak on phones) |
 
-Gemini image model generates a publication-quality PNG directly. Illustrated backgrounds, large brand logos, data flow arrows. Looks like a Canva/Figma design.
+`auto` = Gemini image if `INFG_API_KEY` is set, else Claude HTML if `ANTHROPIC_API_KEY` is set, else template.
+Avoid `gemini-3.1-flash-image` at 1K (scored last: garbled text, missing items) and
+`gemini-3.1-flash-lite-image` except for throwaway drafts.
+
+### 🧠 In-session mode (recommended inside Claude Code — no API cost)
+
+You (the agent) are the designer; only structuring needs a cheap API call.
 
 ```bash
-# Default command — uses AI Image automatically if INFG_API_KEY is set
-python3 ${CLAUDE_SKILL_DIR}/scripts/generate_pretty.py --codebase . --output infographic.png
+# 1. Structure the codebase and save the spec (Haiku 5.5, ~$0.001) — template render is free
+python3 scripts/generate_pretty.py --codebase /path/to/project --renderer template \
+  --save-spec spec.json --output draft.png
+# 2. Print the design brief
+python3 scripts/claude_html_renderer.py --spec spec.json --style modern-dark --print-brief
 ```
 
-### 🖥️ HTML Template (fallback — free rendering)
-
-**Cost:** ~$0.001 (LLM structuring only) | **Requires:** `INFG_OPENROUTER_API_KEY`
-
-Jinja2 template with glassmorphism, SVG brand icons (3,414 brands), connection arrows. Playwright screenshots to PNG.
+3. Write `page.html` that follows the brief exactly. Use `<span class="logo" data-icon="Tech Name"></span>`
+   for every technology (real brand SVGs or monograms are injected). Keep every name exactly as in the spec.
+4. Finish and screenshot:
 
 ```bash
-# Force HTML template mode
-python3 ${CLAUDE_SKILL_DIR}/scripts/generate_pretty.py --codebase . --legacy-html --output infographic.html
+python3 scripts/claude_html_renderer.py --finish page.html --output infographic.png   # 2160×2160 PNG
+```
+
+If you can view images, look at the PNG and fix overlaps or text under ~16px before delivering.
+
+### 🎨 API modes
+
+```bash
+python3 scripts/generate_pretty.py --codebase . --renderer claude-html --output infographic.png
+python3 scripts/generate_pretty.py --codebase . --renderer image --output infographic.png
 ```
 
 ### 📊 Matplotlib (fully offline — free)
 
-**Cost:** Free | **Requires:** Nothing
+```bash
+python3 scripts/parse_context.py --root . --output arch.json
+python3 scripts/generate_linkedin_arch.py --config arch.json --output arch.png
+```
+
+---
+
+## Choosing a backend and model
+
+Check which subscription CLIs and credentials are available on your machine:
 
 ```bash
-python3 ${CLAUDE_SKILL_DIR}/scripts/parse_context.py --root . --output arch.json
-python3 ${CLAUDE_SKILL_DIR}/scripts/generate_linkedin_arch.py --config arch.json --output arch.png
+python3 scripts/doctor.py
 ```
+
+| Backend | Binary / Mode | Default model | Billing |
+|---------|---------------|---------------|---------|
+| `session` | Host agent (`CLAUDECODE=1`) | Host model | Subscription |
+| `claude` | `claude -p` | `claude-opus-5-5` | Subscription |
+| `agy` | `agy -p` | `claude-opus-5-5-low` | Subscription |
+| `codex` | `codex exec` | CLI default | Subscription |
+| `copilot` | `copilot -p` | `auto` | Subscription |
+| `opencode` | `opencode run` | CLI default | Subscription |
+| `api` | Anthropic / AI Studio SDK | `claude-haiku-5-5` / `gemini-3.8-flash` | Paid API (per use) |
+
+- **Rule: `auto` never picks a paid API.** Resolution order is `--backend` / `--model` > `INFG_BACKEND` / `INFG_MODEL` > `auto` (`session` when `CLAUDECODE` is set, otherwise the first installed CLI in `claude, agy, codex, copilot, opencode`). To use paid API keys (`ANTHROPIC_API_KEY` or `INFG_API_KEY`), pass `--backend api` explicitly (or `--renderer image`).
+- Inspect the exact prompt (brief + backend contract + model-family note) without running a model:
+  ```bash
+  python3 scripts/claude_html_renderer.py --backend agy --model gemini-4-argon-high --spec spec.json --print-prompt
+  ```
 
 ---
 
 ## CLI Reference
 
 ```bash
-python3 ${CLAUDE_SKILL_DIR}/scripts/generate_pretty.py \
+python3 scripts/generate_pretty.py \
   --codebase <dir>                    # Read and analyze a codebase
   --title "Title"                     # Override title
   --infographic-type <type>           # architecture|comparison|feature|process|cheatsheet
   --style <style>                     # modern-dark|modern-light|illustrated
-  --model <gemini-model>              # Image model (default: gemini-3.1-flash-image-preview)
-  --llm-model <model>                 # LLM for structuring (default: INFG_LLM_MODEL env)
+  --renderer <r>                      # auto|image|claude-html|template (default: auto)
+  --save-spec spec.json               # Save structured JSON (for in-session mode)
+  --model <gemini-model>              # Image model (default: gemini-3-pro-image, 2K)
+  --llm-model <model>                 # claude-* | gemini-* | vendor/model (OpenRouter); default: auto
   --output <path>                     # Output file
   --legacy-html                       # Force HTML template rendering
   --template <name>                   # Jinja2 template name
@@ -179,12 +222,11 @@ python3 ${CLAUDE_SKILL_DIR}/scripts/generate_pretty.py \
 ## Environment Variables (.env)
 
 ```bash
-# AI Image mode (recommended)
-INFG_API_KEY=                         # Google AI Studio key → enables ★★★★★ AI image
-
-# LLM for codebase structuring
-INFG_OPENROUTER_API_KEY=              # OpenRouter key → enables codebase analysis
-INFG_LLM_MODEL=google/gemini-2.5-flash  # Tier 2 default — good accuracy, low cost
+ANTHROPIC_API_KEY=                    # Claude: structuring (Haiku 5.5) + claude-html renderer (Opus 5.5)
+INFG_API_KEY=                         # Google AI Studio: gemini-3-pro-image + gemini structuring
+INFG_LLM_MODEL=                       # Empty = auto (claude-haiku-5-5, else gemini-3.8-flash)
+INFG_IMAGE_SIZE=2K                    # 1K | 2K | 4K for Gemini image models
+INFG_OPENROUTER_API_KEY=              # Only for vendor/model ids
 
 # Optional
 INFG_VERTEX_PROJECT=                  # Vertex AI project ID (alternative to AI Studio)
@@ -199,8 +241,8 @@ INFG_LLM_PROVIDER=                    # Force provider: gemini or openrouter
 When the user says "next version" / "nueva versión" in any language:
 
 ```bash
-OUTPUT=$(python3 ${CLAUDE_SKILL_DIR}/scripts/version_output.py --root .)
-python3 ${CLAUDE_SKILL_DIR}/scripts/generate_pretty.py --codebase . --output "$OUTPUT/infographic.png"
+OUTPUT=$(python3 scripts/version_output.py --root .)
+python3 scripts/generate_pretty.py --codebase . --output "$OUTPUT/infographic.png"
 ```
 
 ---
@@ -210,7 +252,9 @@ python3 ${CLAUDE_SKILL_DIR}/scripts/generate_pretty.py --codebase . --output "$O
 | Script | Purpose |
 |--------|---------|
 | `generate_pretty.py` | Main entry point — routes to AI image / HTML template / legacy |
-| `content_structurer.py` | LLM → structured JSON (layers, connections, title) |
+| `project_digest.py` | Architecture-first codebase digest (tree, manifests, README) |
+| `content_structurer.py` | LLM → structured JSON (Anthropic / Gemini / OpenRouter) |
+| `claude_html_renderer.py` | Claude/in-session HTML → logo injection → 2160px PNG |
 | `image_prompt_builder.py` | JSON → designer-quality image prompt (70+ brand icons) |
 | `template_renderer.py` | Jinja2 HTML template rendering with icon enrichment |
 | `icon_registry.py` | 3,414 brand SVG icons via simplepycons + fuzzy matching |
@@ -229,8 +273,8 @@ python3 ${CLAUDE_SKILL_DIR}/scripts/generate_pretty.py --codebase . --output "$O
 ## Design References
 
 Read before customizing templates:
-- `${CLAUDE_SKILL_DIR}/references/design-principles.md` — Visual hierarchy, color, typography rules
-- `${CLAUDE_SKILL_DIR}/references/chart-selection.md` — Chart type decision matrix
-- `${CLAUDE_SKILL_DIR}/references/competitive-research.md` — Gap analysis vs Napkin AI, Canva, etc.
-- `${CLAUDE_SKILL_DIR}/references/visual-quality-patterns.md` — Premium CSS/SVG techniques
-- `${CLAUDE_SKILL_DIR}/references/linkedin-visual-analysis.md` — Real LinkedIn post analysis
+- `references/design-principles.md` — Visual hierarchy, color, typography rules
+- `references/chart-selection.md` — Chart type decision matrix
+- `references/competitive-research.md` — Gap analysis vs Napkin AI, Canva, etc.
+- `references/visual-quality-patterns.md` — Premium CSS/SVG techniques
+- `references/linkedin-visual-analysis.md` — Real LinkedIn post analysis

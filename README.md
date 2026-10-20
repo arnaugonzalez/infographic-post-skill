@@ -213,6 +213,22 @@ python scripts/generate_pretty.py --codebase . --style modern-light
 python scripts/generate_pretty.py --codebase . --style illustrated
 ```
 
+## Choosing a backend and model
+
+Run `python scripts/doctor.py` (from `skills/infographic/`) to inspect installed subscription CLIs and environment variables without exposing key values:
+
+| Backend | Default model | Billing |
+|---------|---------------|---------|
+| `session` | Host agent (`CLAUDECODE`) | Subscription |
+| `claude` | `claude-opus-5-5` | Subscription |
+| `agy` | `claude-opus-5-5-low` | Subscription |
+| `codex` | CLI default | Subscription |
+| `copilot` | `auto` | Subscription |
+| `opencode` | CLI default | Subscription |
+| `api` | `claude-haiku-5-5` / `gemini-3.8-flash` | Paid API (per use) |
+
+Pass `--backend <name> --model <id>` (or set `INFG_BACKEND` / `INFG_MODEL`) to `scripts/generate_pretty.py` or `scripts/claude_html_renderer.py`. Use `--print-prompt` on `scripts/claude_html_renderer.py` to inspect the assembled prompt and model-family instructions. **Rule: `auto` never picks a paid API** — it chooses `session` inside Claude Code or the first installed subscription CLI, and requires `--backend api` (or `--renderer image`) before spending API credits.
+
 ## Setup
 
 ### Option A: Google AI Studio (recommended — enables AI Image mode)

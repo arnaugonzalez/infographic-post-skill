@@ -5,14 +5,14 @@ Infographic Skill — Gemini "Pretty" Mode Generator
 Uses Google Gemini (google-genai SDK) to produce visually stunning
 LinkedIn-ready infographics.
 
-Default model: gemini-3.1-flash-image-preview
+Default model: gemini-3-pro-image (2K)
   → For *-image models: generates a PNG directly via IMAGE modality
   → For text models:    generates self-contained HTML → PNG via Playwright
   → Always prints a cost breakdown after every generation.
 
 Backend routing (automatic):
-  • AI-Studio-only models (e.g. gemini-3.1-flash-image-preview) → AI Studio (INFG_API_KEY)
-  • Stable models (e.g. gemini-2.5-flash-image, gemini-2.5-pro)  → Vertex AI (INFG_VERTEX_PROJECT)
+  • AI-Studio-only models (e.g. gemini-3-pro-image) → AI Studio (INFG_API_KEY)
+  • Other models (e.g. gemini-2.5-pro)                → Vertex AI (INFG_VERTEX_PROJECT)
   • If only one backend is configured, all models route there.
 
 Usage:
@@ -32,9 +32,11 @@ Usage:
     # Use a different model:
     python scripts/generate_pretty.py --config arch.json --model gemini-2.5-pro --output pretty.html
 
-Available models (Feb 2026):
-    gemini-3.1-flash-image-preview ← default  (AI Studio, native PNG)
-    gemini-2.5-flash-image                     (Vertex AI, native PNG, stable fallback)
+Available image models (Oct 2026 — see benchmark/RESULTS.md):
+    gemini-3-pro-image          ← default  ($0.134/img, best image-model quality)
+    gemini-3.1-flash-image                 ($0.101/img at 2K, fallback)
+    gemini-3.1-flash-lite-image            ($0.034/img, drafts only)
+    (gemini-2.5-flash-image was shut down on 2026-10-02)
     gemini-2.5-pro                             (Vertex AI, HTML output, best quality)
     gemini-2.0-flash                           (Vertex AI, HTML output, fast/cheap)
     gemini-2.0-flash-lite                      (Vertex AI, HTML output, cheapest)
@@ -130,6 +132,9 @@ _IMAGE_MODEL_ENV    = os.environ.get("INFG_IMAGE_MODEL",       "").strip()
 # Models only available on AI Studio (404 on Vertex AI as of Feb 2026).
 # These are automatically routed to AI Studio when INFG_API_KEY is set.
 _AI_STUDIO_ONLY = frozenset({
+    "gemini-3-pro-image",
+    "gemini-3.1-flash-image",
+    "gemini-3.1-flash-lite-image",
     "gemini-3.1-flash-image-preview",
     "gemini-3-pro-preview",
     "gemini-3.1-pro-preview",
@@ -254,21 +259,22 @@ except ImportError:
                 layers.append({"label": label.strip(), "items": items, "category": "other"})
         return layers
 
-# ── Pricing table (USD, verified Feb 2026 — always re-check ai.google.dev/pricing) ──
+# ── Pricing table (USD, verified Oct 2026 — always re-check ai.google.dev/pricing) ──
 
-# (input_per_1M_tokens, output_per_1M_tokens, output_per_image)
+# (input_per_1M_tokens, output_per_1M_tokens, output_per_image at _IMAGE_SIZE)
 _PRICING: dict[str, tuple[float, float, float]] = {
-    "gemini-3.1-flash-image-preview": (0.075, 0.30, 0.039),  # newest image gen model
-    "gemini-2.5-flash-image":    (0.075,  0.30,  0.039),   # stable image gen model
-    "gemini-2.5-flash":          (0.075,  0.30,  0.0),
-    "gemini-2.5-flash-lite":     (0.02,   0.08,  0.0),
-    "gemini-2.5-pro":            (1.25,   10.0,  0.0),
-    "gemini-3-pro-preview":      (1.25,   5.0,   0.0),
-    "gemini-3.1-pro-preview":    (1.25,   5.0,   0.0),
-    "gemini-2.0-flash":          (0.10,   0.40,  0.0),
-    "gemini-2.0-flash-lite":     (0.025,  0.10,  0.0),
+    "gemini-3-pro-image":             (2.00, 12.00, 0.134),
+    "gemini-3.1-flash-image":         (0.50,  3.00, 0.101),   # 2K; 1K is $0.067
+    "gemini-3.1-flash-image-preview": (0.50,  3.00, 0.101),
+    "gemini-3.1-flash-lite-image":    (0.25,  1.50, 0.0336),  # 1K only
+    "gemini-3.8-flash":               (0.75,  3.75, 0.0),     # promo price until 2026-12-31
+    "gemini-3.1-flash-lite":          (0.25,  1.50, 0.0),
+    "gemini-3.1-pro-preview":         (2.00, 12.00, 0.0),
+    "gemini-2.5-flash":               (0.30,  2.50, 0.0),
+    "gemini-2.5-pro":                 (1.25, 10.0,  0.0),
 }
 _DEFAULT_PRICING = (1.0, 4.0, 0.0)   # conservative fallback for unknown models
+_IMAGE_SIZE = os.environ.get("INFG_IMAGE_SIZE", "2K").strip()  # 1K | 2K | 4K
 
 
 # ── Model version helpers ─────────────────────────────────────────────────────
@@ -796,6 +802,10 @@ def _call_image_mode(
         contents=prompt,
         config=genai_types.GenerateContentConfig(
             response_modalities=["IMAGE", "TEXT"],
+            image_config=genai_types.ImageConfig(
+                aspect_ratio="1:1",
+                image_size=_IMAGE_SIZE if "lite" not in model else "1K",
+            ),
         ),
     )
     usage = _extract_usage(response)
@@ -926,7 +936,16 @@ def _playwright_screenshot(html_path: Path) -> Path | None:
 
 # ── Public entry point ────────────────────────────────────────────────────────
 
-_IMAGE_FALLBACK = "gemini-2.5-flash-image"   # used when the primary image model returns 404
+DEFAULT_IMAGE_MODEL = "gemini-3-pro-image"
+_IMAGE_FALLBACK = "gemini-3.1-flash-image"   # used when the primary image model returns 404
+
+
+def _resolve_renderer(choice: str) -> str:
+    """Pick the renderer for --renderer auto: claude-html via the resolved backend;
+    image is used only when explicitly requested with --renderer image."""
+    if choice != "auto":
+        return choice
+    return "claude-html"
 
 
 def _resolve_llm_provider(args) -> tuple[str, str | None]:
@@ -953,7 +972,7 @@ def generate_pretty(
     config: dict,
     output: str = "pretty_infographic.png",
     viz_type: str = "architecture",
-    model_name: str = "gemini-3.1-flash-image-preview",
+    model_name: str = DEFAULT_IMAGE_MODEL,
     llm_provider: str = "gemini",
     llm_model: str | None = None,
 ) -> Path:
@@ -965,7 +984,7 @@ def generate_pretty(
     config     : arch JSON dict or free-form data dict
     output     : destination file path
     viz_type   : "architecture" | "dashboard"
-    model_name : Gemini model identifier (default: gemini-3.1-flash-image-preview)
+    model_name : Gemini model identifier (default: DEFAULT_IMAGE_MODEL)
     """
     # ── Provider-specific setup ────────────────────────────────────────────────
     if llm_provider == "openrouter":
@@ -1170,8 +1189,10 @@ if __name__ == "__main__":
     ap.add_argument("--subtitle", default="Technical Architecture Overview")
     ap.add_argument("--author",   default="")
     ap.add_argument("--cta",      default="Follow for more software architecture content")
-    ap.add_argument("--model",    default="gemini-3.1-flash-image-preview",
-                    help="Gemini model (default: gemini-3.1-flash-image-preview)")
+    ap.add_argument("--backend",  default=None,
+                    help="Backend: auto|session|claude|agy|codex|copilot|opencode|api")
+    ap.add_argument("--model",    default=None,
+                    help=f"Backend model or Gemini image model (image default: {DEFAULT_IMAGE_MODEL})")
     ap.add_argument("--llm-provider", default=None,
                     help="LLM provider for text/HTML path: gemini (default) or openrouter")
     ap.add_argument("--llm-model",    default=None,
@@ -1187,6 +1208,12 @@ if __name__ == "__main__":
     ap.add_argument("--infographic-type", default="architecture",
                     choices=["architecture", "comparison", "feature", "process", "cheatsheet"],
                     help="Type of infographic to generate (default: architecture)")
+    ap.add_argument("--renderer", default="auto",
+                    choices=["auto", "image", "claude-html", "template"],
+                    help="auto: Gemini image model if INFG_API_KEY/Vertex is set, else Claude HTML "
+                         "if ANTHROPIC_API_KEY is set, else the free Jinja template")
+    ap.add_argument("--save-spec", default="",
+                    help="Write the structured JSON here (reuse it with claude_html_renderer.py)")
     ap.add_argument("--style", default="modern-dark",
                     choices=["modern-dark", "modern-light", "illustrated"],
                     help="Visual style preset (default: modern-dark)")
@@ -1226,11 +1253,8 @@ if __name__ == "__main__":
         viz_type = args.type
 
     elif args.codebase:
-        try:
-            from read_codebase import read_codebase as _read_codebase  # type: ignore
-        except ImportError:
-            ap.error("read_codebase.py not found — ensure Phase 4 scripts are available")
-        report = _read_codebase(args.codebase)
+        from read_codebase import read_codebase as _read_codebase  # type: ignore
+        from project_digest import build_digest  # type: ignore
 
         # ── v2 template-based rendering (default) ────────────────────────
         if not args.legacy_html:
@@ -1244,11 +1268,21 @@ if __name__ == "__main__":
                 args.legacy_html = True
 
         if not args.legacy_html:
-            llm_provider, llm_model = _resolve_llm_provider(args)
-            effective_model = llm_model or _LLM_MODEL or "google/gemini-2.0-flash-001"
-            or_api_key = _OPENROUTER_API_KEY or _LLM_API_KEY
+            import backends  # type: ignore
+
+            # Architecture-first digest (manifests, tree, README) instead of raw
+            # source: ~5x fewer tokens and it keeps non-Python sub-projects.
+            digest = build_digest(args.codebase)
+            print(f"📦  Project digest: ~{digest['token_estimate']:,} tokens, "
+                  f"{len(digest['manifests'])} manifests, languages: "
+                  f"{', '.join(sorted(digest['languages'], key=digest['languages'].get, reverse=True)[:5])}")
+            renderer = _resolve_renderer(args.renderer)
+            if renderer == "image" and not args.backend and not os.environ.get("INFG_BACKEND"):
+                backend, resolved_model = ("api", args.llm_model)
+            else:
+                backend, resolved_model = backends.resolve(args.backend, args.model or args.llm_model)
             structured_data = structure_codebase(
-                report, model=effective_model, api_key=or_api_key or None,
+                digest, model=args.llm_model or resolved_model, backend=backend
             )
             # Override title if user specified
             if args.title != "System Architecture":
@@ -1258,21 +1292,50 @@ if __name__ == "__main__":
             if args.cta:
                 structured_data["footer_cta"] = args.cta
 
+            if args.save_spec or backend == "session":
+                spec_path = Path(args.save_spec) if args.save_spec else Path(args.output).with_suffix(".spec.json")
+                spec_path.parent.mkdir(parents=True, exist_ok=True)
+                spec_path.write_text(json.dumps(structured_data, indent=2), encoding="utf-8")
+                print(f"📝  Structured spec → {spec_path.resolve()}")
+
+            if renderer == "claude-html":
+                if backend == "session":
+                    print(backends.build_prompt(
+                        "render", "session", resolved_model, structured_data,
+                        style=args.style, kind=args.infographic_type,
+                    ))
+                    html_out = Path(args.output).with_suffix(".html")
+                    print(
+                        f"\n# Host agent: write the HTML document to {html_out}, then run:\n"
+                        f"python3 scripts/claude_html_renderer.py --finish {html_out} --output {args.output}"
+                    )
+                    sys.exit(0)
+                from claude_html_renderer import render_with_claude  # type: ignore
+                print(f"🎨  Claude HTML renderer ({args.infographic_type} / {args.style}) via {backend}...")
+                png_path, cl_usage = render_with_claude(
+                    structured_data, args.output, style=args.style, kind=args.infographic_type,
+                    model=resolved_model, backend=backend,
+                )
+                print(f"  Model: {cl_usage['model']}  in={cl_usage['input_tokens']} "
+                      f"out={cl_usage['output_tokens']}  cost=${cl_usage['total_cost']:.3f}")
+                print(f"✅  AI Infographic → {png_path.resolve()}  (2160×2160 px)")
+                sys.exit(0)
+
             # ── Choose rendering path: AI image vs HTML template ──────────
             # CLI --model takes priority; env INFG_IMAGE_MODEL only if CLI is default
-            if args.model != "gemini-3.1-flash-image-preview":
+            if args.model and args.model != DEFAULT_IMAGE_MODEL:
                 image_model = args.model  # User explicitly chose a model
             elif _IMAGE_MODEL_ENV:
                 # Check if the env model is a Gemini image model or something else
                 if _is_image_model(_IMAGE_MODEL_ENV):
                     image_model = _IMAGE_MODEL_ENV
                 else:
-                    image_model = args.model  # Env is a non-image model (e.g. flux), keep default
+                    image_model = DEFAULT_IMAGE_MODEL  # Env is a non-image model (e.g. flux), keep default
             else:
-                image_model = args.model
+                image_model = DEFAULT_IMAGE_MODEL
 
             # Path A: AI image generation (Gemini image models → PNG directly)
-            if _GENAI_OK and _is_image_model(image_model):
+            if renderer == "image" and _GENAI_OK and _is_image_model(image_model):
                 print(f"🎨  Building designer-quality image prompt ({args.infographic_type} / {args.style})...")
                 img_prompt = _build_v2_image_prompt(
                     structured_data,
@@ -1336,7 +1399,7 @@ if __name__ == "__main__":
 
         # ── Legacy path: LLM generates HTML from scratch ─────────────────
         config, viz_type = _config_from_codebase_report(
-            report,
+            _read_codebase(args.codebase),
             title=args.title,
             subtitle=args.subtitle,
             author=args.author,
@@ -1354,6 +1417,7 @@ if __name__ == "__main__":
         config["learnings"] = args.learnings
 
     llm_provider, llm_model = _resolve_llm_provider(args)
-    image_model = _IMAGE_MODEL_ENV if (_IMAGE_MODEL_ENV and args.model == "gemini-3.1-flash-image-preview") else args.model
+    chosen_img = args.model or DEFAULT_IMAGE_MODEL
+    image_model = _IMAGE_MODEL_ENV if (_IMAGE_MODEL_ENV and chosen_img == DEFAULT_IMAGE_MODEL) else chosen_img
     generate_pretty(config, args.output, viz_type, image_model,
                     llm_provider=llm_provider, llm_model=llm_model)

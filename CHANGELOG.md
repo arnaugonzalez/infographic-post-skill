@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.2.0 — unreleased
+
+### Added
+- User-selectable backend and model (`scripts/backends.py`, `scripts/doctor.py`, `scripts/prompts/`) supporting subscription CLIs (`claude`, `agy`, `codex`, `copilot`, `opencode`), in-session agent mode (`session`), and explicit API mode (`api`) via `--backend` / `--model` and `INFG_BACKEND` / `INFG_MODEL`.
+- `scripts/claude_html_renderer.py` (`--backend`, `--model`, `--print-prompt`, `--finish`), `scripts/project_digest.py` (architecture-first codebase digest), and `benchmark/` (`bench.py`, `RESULTS.md`).
+
+### Changed
+- `auto` backend resolution prefers `session` (inside Claude Code) or the first installed subscription CLI and never selects a paid API or OpenRouter automatically.
+- `--renderer auto` routes to `claude-html` via the resolved backend; `--renderer image` is used only when requested explicitly.
+
 ## [0.1.0] — Unreleased
 
 First tagged release, packaged as a Claude Code plugin. The version restarts at 0.1.0: the

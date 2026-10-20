@@ -106,14 +106,17 @@ class TestGetIconSvgReal:
 class TestGetIconSvgFallback:
     """Test emoji fallback when icon is not found."""
 
-    def test_unknown_tech_returns_emoji_span(self):
+    def test_unknown_tech_returns_monogram_svg(self):
         result = get_icon_svg("TotallyMadeUpTech12345")
-        assert "<span " in result
-        assert "font-size:" in result
+        assert result.startswith("<svg ")
+        assert ">TO</text>" in result
 
-    def test_unknown_tech_uses_default_emoji(self):
-        result = get_icon_svg("TotallyMadeUpTech12345")
-        assert "🔧" in result
+    def test_multiword_unknown_uses_initials(self):
+        assert ">AR</text>" in get_icon_svg("Acme Router")
+
+    @pytest.mark.parametrize("name", ["Docker Compose", "Jinja2", "Telegram Bot", "JWT"])
+    def test_progressive_slug_resolution_finds_brand(self, name: str):
+        assert 'fill="#' in get_icon_svg(name) and "<path" in get_icon_svg(name)
 
     def test_emoji_fallback_docker_when_simplepycons_unavailable(self):
         """Simulate simplepycons being unavailable."""

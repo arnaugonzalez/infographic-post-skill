@@ -112,6 +112,12 @@ _ALIAS_MAP: Dict[str, str] = {
     "grafana": "grafana",
     "prometheus": "prometheus",
     "sentry": "sentry",
+    "jwt": "jsonwebtokens",
+    "telegram bot": "telegram",
+    "jinja2": "jinja",
+    "pgvector": "postgresql",
+    "gemini": "googlegemini",
+    "lighthouse ci": "lighthouse",
 }
 
 # ---------------------------------------------------------------------------
@@ -190,13 +196,13 @@ def get_icon_svg(tech_name: str, size: int = 20) -> str:
         An ``<svg …>`` string on success, or a ``<span>`` with an emoji
         fallback when the icon cannot be resolved.
     """
-    slug = _normalize_slug(tech_name)
-
     try:
         from simplepycons import all_icons  # noqa: WPS433
 
-        getter = getattr(all_icons, f"get_{slug}_icon", None)
-        if getter is not None:
+        for slug in _candidate_slugs(tech_name):
+            getter = getattr(all_icons, f"get_{slug}_icon", None)
+            if getter is None:
+                continue
             icon = getter()
             path_d = _extract_path(icon.raw_svg)
             color = icon.primary_color  # already includes '#'
@@ -207,9 +213,40 @@ def get_icon_svg(tech_name: str, size: int = 20) -> str:
                     f'<path d="{path_d}"/></svg>'
                 )
     except ImportError:
-        pass  # simplepycons not installed — fall through to emoji
+        # simplepycons not installed — specific emoji beat a monogram here
+        key = tech_name.lower().strip()
+        emoji = _EMOJI_FALLBACK.get(key, _DEFAULT_EMOJI)
+        return f'<span style="font-size:{size}px;line-height:1;">{emoji}</span>'
 
-    # Emoji fallback
-    key = tech_name.lower().strip()
-    emoji = _EMOJI_FALLBACK.get(key, _DEFAULT_EMOJI)
-    return f'<span style="font-size:{size}px;line-height:1;">{emoji}</span>'
+    return _monogram_svg(tech_name, size)
+
+
+def _candidate_slugs(tech_name: str) -> list:
+    """Slugs to try in order: full name, first word ("Docker Compose" → docker),
+    and the name without a trailing version ("Jinja2" → jinja)."""
+    words = tech_name.split()
+    candidates = [_normalize_slug(tech_name)]
+    if len(words) > 1:
+        candidates.append(_normalize_slug(words[0]))
+    candidates.append(re.sub(r"\d+$", "", candidates[0]))
+    return [c for i, c in enumerate(candidates) if c and c not in candidates[:i]]
+
+
+# Deterministic accent per name so the same tech keeps its colour across renders
+_MONOGRAM_COLORS = ("#6366F1", "#0EA5E9", "#10B981", "#F59E0B", "#EC4899", "#8B5CF6", "#14B8A6", "#F97316")
+
+
+def _monogram_svg(tech_name: str, size: int) -> str:
+    """Rounded-square badge with 1-2 initials — used when no brand mark exists.
+
+    An emoji wrench reads as a missing asset; a monogram reads as intentional.
+    """
+    words = re.findall(r"[A-Za-z0-9]+", tech_name) or ["?"]
+    letters = (words[0][0] + (words[1][0] if len(words) > 1 else words[0][1:2])).upper()
+    color = _MONOGRAM_COLORS[sum(map(ord, tech_name)) % len(_MONOGRAM_COLORS)]
+    return (
+        f'<svg width="{size}" height="{size}" viewBox="0 0 24 24">'
+        f'<rect width="24" height="24" rx="6" fill="{color}"/>'
+        f'<text x="12" y="16.2" text-anchor="middle" font-family="Inter,Arial,sans-serif" '
+        f'font-size="{11 if len(letters) > 1 else 13}" font-weight="700" fill="#fff">{letters}</text></svg>'
+    )

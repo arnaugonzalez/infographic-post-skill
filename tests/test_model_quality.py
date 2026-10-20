@@ -84,8 +84,8 @@ class TestQualityWarning:
         output = buf.getvalue()
         assert "LOW-QUALITY MODEL WARNING" in output
         assert "tier 3" in output
-        assert "tier-1 model" in output
-        assert "claude-sonnet-4.6" in output
+        assert "use a current model" in output
+        assert "claude-sonnet-5-5" in output
 
     def test_tier_2_prints_info(self) -> None:
         """Tier 2 should print a brief info message to stderr."""

@@ -30,7 +30,11 @@ _QUALITY_TIER_OVERRIDES: dict[str, int] = {
 _QUALITY_TIER_1: frozenset[str] = frozenset({
     # Flagship models — best at structured output, design fidelity, and following
     # complex layout constraints.  Low hallucination on tech names.
-    # Updated March 2026 from OpenRouter rankings + model pages.
+    # Updated Oct 2026 (benchmark/RESULTS.md) — Claude 5.x and Gemini 3.x Pro.
+    "claude-fable-5",
+    "claude-opus-5",
+    "claude-sonnet-5",
+    "gemini-3.1-pro",
     "claude-opus-4.6",
     "claude-opus-4.5",
     "claude-sonnet-4.6",
@@ -128,18 +132,17 @@ def quality_warning(model: str, tier: int, context: str = "infographic") -> None
             f"     • Hallucinated technology names\n"
             f"     • Missing sections, icons, or design elements\n"
             f"\n"
-            f"   💡 For publication-quality {context}s, use a tier-1 model:\n"
-            f"      INFG_LLM_MODEL=anthropic/claude-sonnet-4.6\n"
-            f"      INFG_LLM_MODEL=google/gemini-2.5-pro\n"
-            f"      INFG_LLM_MODEL=openai/gpt-5.2\n"
-            f"      INFG_LLM_MODEL=deepseek/deepseek-v3.2\n",
+            f"   💡 For publication-quality {context}s, use a current model:\n"
+            f"      INFG_LLM_MODEL=claude-haiku-5-5     (~$0.001/call)\n"
+            f"      INFG_LLM_MODEL=gemini-3.8-flash     (~$0.012/call)\n"
+            f"      INFG_LLM_MODEL=claude-sonnet-5-5    (~$0.02/call)\n",
             file=sys.stderr,
         )
     elif tier == 2:
         print(
             f"ℹ️  Model '{model}' is tier 2 (mid-range) — "
             f"results are usually good but may need minor cleanup.\n"
-            f"   Upgrade to a tier-1 model for best results: "
-            f"claude-sonnet-4.6, gemini-2.5-pro, gpt-5.2, or deepseek-v3.2.",
+            f"   Tier-1 options: claude-sonnet-5-5 or claude-opus-5-5 (most complete in the "
+            f"Oct 2026 benchmark).",
             file=sys.stderr,
         )
