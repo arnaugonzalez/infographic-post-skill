@@ -44,6 +44,8 @@ TECHNICAL RULES
   Use them small and sparingly; they are labels, not decoration.
 - Body text ≥ 20px, headline ≥ 56px. Arrows (inline SVG) ≥ 2px, routed through empty space.
 - Keep every name you keep EXACTLY as written in the content.
+- Byline: use the content's `author` field if it has one; otherwise no byline. Never copy a name,
+  handle or URL from the reference pages.
 
 {examples}
 

@@ -5,6 +5,7 @@ import json
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -113,19 +114,19 @@ class TestArgvAndStdin:
             res = MagicMock()
             res.returncode = 0
             html = "<!doctype html><html><body>ok</body></html>"
-            res.stdout = json.dumps({"status": "SUCCESS", "response": html}) if cmd[0] == "agy" else html
+            res.stdout = html
             res.stderr = ""
             return res
 
         monkeypatch.setattr("subprocess.run", fake_run)
-        for name in ("claude", "agy", "codex", "copilot", "opencode"):
+        for name in ("claude", "codex", "copilot", "opencode"):
             assert "<body>ok</body>" in run(name, None, "PROMPT_TEXT")
 
         by_bin = dict(calls)
         assert all(kw["cwd"].startswith(tempfile.gettempdir()) for _, kw in calls)
         assert by_bin["claude"].get("input") == "PROMPT_TEXT"
         assert by_bin["codex"].get("input") == "PROMPT_TEXT"
-        for name in ("agy", "copilot", "opencode"):
+        for name in ("copilot", "opencode"):
             assert "input" not in by_bin[name]
             assert by_bin[name].get("stdin") == subprocess.DEVNULL
 
@@ -243,3 +244,35 @@ class TestClaudeHtmlRendererBackendIntegration:
         assert "<svg " in html_text
         assert 'width="100%" height="100%"' in html_text
         assert out_png.exists()
+
+
+class TestRunUntilJson:
+    """agy prints its JSON result and may keep running: the runner must not wait for exit."""
+
+    def _cmd(self, body: str) -> list[str]:
+        return [sys.executable, "-c", body]
+
+    def test_returns_as_soon_as_result_line_arrives(self):
+        from backends import _run_until_json
+        body = ("import json,sys,time; print('log line'); "
+                "print(json.dumps({'status':'SUCCESS','response':'<html>x</html>'})); "
+                "sys.stdout.flush(); time.sleep(60)")
+        started = time.monotonic()
+        assert _run_until_json("agy", self._cmd(body), tempfile.gettempdir(), 30, "response") == "<html>x</html>"
+        assert time.monotonic() - started < 10
+
+    def test_error_status_raises(self):
+        from backends import BackendError, _run_until_json
+        body = "import json; print(json.dumps({'status':'ERROR','error':'quota'}))"
+        with pytest.raises(BackendError, match="quota"):
+            _run_until_json("agy", self._cmd(body), tempfile.gettempdir(), 30, "response")
+
+    def test_exit_without_result_raises(self):
+        from backends import BackendError, _run_until_json
+        with pytest.raises(BackendError, match="no JSON result"):
+            _run_until_json("agy", self._cmd("print('help text')"), tempfile.gettempdir(), 30, "response")
+
+    def test_timeout_raises(self):
+        from backends import BackendError, _run_until_json
+        with pytest.raises(BackendError, match="timeout"):
+            _run_until_json("agy", self._cmd("import time; time.sleep(60)"), tempfile.gettempdir(), 1, "response")

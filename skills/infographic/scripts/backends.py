@@ -8,10 +8,14 @@ from __future__ import annotations
 
 import json
 import os
+import queue
 import re
 import shutil
+import signal
 import subprocess
 import tempfile
+import threading
+import time
 from pathlib import Path
 
 _SCRIPTS_DIR = Path(__file__).resolve().parent
@@ -206,26 +210,61 @@ def run(backend: str, model: str | None, prompt: str) -> str:
     else:
         kwargs["stdin"] = subprocess.DEVNULL
 
+    field = spec.get("json_field")
     # Agentic CLIs run in an empty scratch dir so they cannot touch the user's project.
     with tempfile.TemporaryDirectory(prefix="infg-") as scratch:
+        if field:
+            return _run_until_json(backend, cmd, scratch, spec["timeout_s"], field)
         res = subprocess.run(cmd, cwd=scratch, **kwargs)
     if res.returncode != 0:
         stderr = (res.stderr or "")[-2000:]
         raise BackendError(backend, stderr)
-    field = spec.get("json_field")
-    return _json_field(res.stdout, field) if field else res.stdout
+    return res.stdout
 
 
-def _json_field(stdout: str, field: str) -> str:
-    """Value of ``field`` in the last JSON object line of ``stdout``."""
-    for line in reversed(stdout.splitlines()):
-        line = line.strip()
-        if line.startswith("{"):
+def _run_until_json(backend: str, cmd: list[str], cwd: str, timeout_s: int, field: str) -> str:
+    """Read stdout until a JSON line carrying ``field`` arrives, then stop the process group.
+
+    agy prints its JSON result and sometimes keeps running afterwards, so waiting for exit hangs.
+    """
+    proc = subprocess.Popen(cmd, cwd=cwd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                            stderr=subprocess.DEVNULL, text=True, start_new_session=True)
+    lines: queue.Queue[str | None] = queue.Queue()
+
+    def pump() -> None:
+        for line in proc.stdout:
+            lines.put(line)
+        lines.put(None)
+
+    threading.Thread(target=pump, daemon=True).start()
+    deadline = time.monotonic() + timeout_s
+    seen: list[str] = []
+    try:
+        while (remaining := deadline - time.monotonic()) > 0:
             try:
-                return str(json.loads(line)[field])
-            except (json.JSONDecodeError, KeyError):
-                continue
-    raise BackendError("json", f"no JSON line with {field!r} in output: {stdout[-500:]}")
+                line = lines.get(timeout=remaining)
+            except queue.Empty:
+                break
+            if line is None:
+                break
+            seen.append(line)
+            if line.lstrip().startswith("{"):
+                try:
+                    data = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if data.get("status", "SUCCESS") != "SUCCESS":
+                    raise BackendError(backend, f"status {data.get('status')}: {str(data.get('error', ''))[:500]}")
+                if field in data:
+                    return str(data[field])
+        tail = "".join(seen)[-500:]
+        raise BackendError(backend, f"no JSON result with {field!r} before exit or {timeout_s}s timeout: {tail}")
+    finally:
+        if proc.poll() is None:
+            try:
+                os.killpg(proc.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
 
 
 def extract_html(text: str) -> str:
