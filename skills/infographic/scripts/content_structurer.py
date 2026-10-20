@@ -38,7 +38,8 @@ RULES:
 - Add "connections" array showing data flow between layers
 - Each connection has: "from_layer" (index), "to_layer" (index), "label" (short flow description)
 - "title" should be derived from the project name, not generic
-- "subtitle" should be "Technical Architecture Overview" or similar
+- "subtitle" is one short factual sentence specific to THIS project, or "" — never a generic
+  phrase like "Technical Architecture Overview"
 - "footer_summary" should be a one-line description of the project (≤80 chars)
 
 IMPORTANT:
@@ -230,6 +231,7 @@ def structure_codebase(
     api_key: str | None = None,
     max_retries: int = 2,
     backend: str | None = None,
+    focus: str = "",
 ) -> dict:
     """Convert a codebase report (or project digest) into structured infographic data.
 
@@ -240,10 +242,15 @@ def structure_codebase(
     api_key : key for direct API mode (default: from .env)
     max_retries : number of retries on JSON parse failure
     backend : ``auto|session|claude|agy|codex|copilot|opencode|api``
+    focus : what the author wants the graphic to be about (``--learnings``); it outranks what the
+        code alone suggests, e.g. when old code paths are still in the repository
 
     Returns a dict ready for template_renderer.render_infographic()
     """
     summary = codebase_report.get("summary_text", json.dumps(codebase_report, indent=2))
+    if focus:
+        summary = (f"AUTHOR'S FOCUS — describes the current version; when it conflicts with the code "
+                   f"analysis below, follow the focus:\n{focus}\n\n{summary}")
     prompt = _STRUCTURER_PROMPT.format(codebase_report=summary)
 
     use_api_directly = (

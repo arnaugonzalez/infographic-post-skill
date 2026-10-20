@@ -100,3 +100,48 @@ class TestLayoutCheck:
     def test_text_outside_canvas_is_reported(self, tmp_path, capsys):
         err = self._issues(tmp_path, capsys, "<p style='position:absolute;left:1050px'>Overflowing</p>")
         assert 'outside the canvas: "Overflowing"' in err
+
+
+class TestFocus:
+    def test_focus_reaches_structurer_prompt(self, monkeypatch):
+        import content_structurer
+        seen = {}
+
+        def fake_run(backend, model, prompt):
+            seen["prompt"] = prompt
+            return '{"title": "T", "layers": [{"label": "A", "items": [{"name": "X"}]}]}'
+
+        monkeypatch.setattr(content_structurer.backends, "run", fake_run)
+        monkeypatch.setattr(content_structurer.backends, "resolve", lambda b, m: ("claude", None))
+        content_structurer.structure_codebase({"summary_text": "uses OpenRouter"}, backend="claude",
+                                              focus="subscription CLIs only")
+        assert seen["prompt"].index("subscription CLIs only") < seen["prompt"].index("uses OpenRouter")
+        assert "Technical Architecture Overview" in seen["prompt"]  # only as the banned example
+        assert "never a generic" in seen["prompt"]
+
+
+class TestRepairRound:
+    def test_problems_go_back_to_the_backend_once(self, tmp_path, monkeypatch):
+        import claude_html_renderer as r
+        prompts, captures = [], iter([["layout: text overlaps: \"A\" / \"B\""], []])
+        page = "<!doctype html><html><!-- thesis: t hero: h archetype: editorial --><body>{}</body></html>"
+
+        def fake_run(backend, model, prompt):
+            prompts.append(prompt)
+            return page.format(len(prompts))
+
+        monkeypatch.setattr(r.backends, "run", fake_run)
+        monkeypatch.setattr(r, "_capture", lambda *a: next(captures))
+        png, usage = r.render_with_claude({"title": "T"}, str(tmp_path / "o.png"), backend="claude")
+        assert len(prompts) == 2 and 'text overlaps: "A" / "B"' in prompts[1]
+        assert "<body>1</body>" in prompts[1] and usage["issues"] == []
+        assert "<body>2</body>" in (tmp_path / "o.html").read_text()
+
+    def test_no_problems_means_a_single_call(self, tmp_path, monkeypatch):
+        import claude_html_renderer as r
+        calls = []
+        monkeypatch.setattr(r.backends, "run", lambda *a: calls.append(1) or
+                            "<!doctype html><html><!-- thesis: t hero: h archetype: x --></html>")
+        monkeypatch.setattr(r, "_capture", lambda *a: [])
+        r.render_with_claude({"title": "T"}, str(tmp_path / "o.png"), backend="claude")
+        assert len(calls) == 1

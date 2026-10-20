@@ -1288,8 +1288,10 @@ if __name__ == "__main__":
             else:
                 backend, resolved_model = backends.resolve(args.backend, args.model or args.llm_model)
             structured_data = structure_codebase(
-                digest, model=args.llm_model or resolved_model, backend=backend
+                digest, model=args.llm_model or resolved_model, backend=backend, focus=args.learnings
             )
+            if args.learnings:
+                structured_data["focus"] = args.learnings
             # Override title if user specified
             if args.title != "System Architecture":
                 structured_data["title"] = args.title

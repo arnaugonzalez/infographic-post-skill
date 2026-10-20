@@ -97,7 +97,8 @@ _LAYOUT_CHECK_JS = """([w, h]) => {
 }"""
 
 
-def screenshot(html_path: Path, png_path: Path, size: tuple[int, int] = design.FORMATS["square"]) -> Path:
+def _capture(html_path: Path, png_path: Path, size: tuple[int, int]) -> list[str]:
+    """Screenshot the page and return the layout problems found in the rendered DOM."""
     width, height = size
     from playwright.sync_api import sync_playwright
     with sync_playwright() as pw:
@@ -105,20 +106,47 @@ def screenshot(html_path: Path, png_path: Path, size: tuple[int, int] = design.F
         page = browser.new_page(viewport={"width": width, "height": height}, device_scale_factor=2)
         page.goto(f"file://{html_path.resolve()}", wait_until="networkidle")
         page.wait_for_timeout(800)
-        for issue in page.evaluate(_LAYOUT_CHECK_JS, [width, height]):
-            print(f"⚠️  layout: {issue}", file=sys.stderr)
+        issues = page.evaluate(_LAYOUT_CHECK_JS, [width, height])
         page.screenshot(path=str(png_path), clip={"x": 0, "y": 0, "width": width, "height": height})
         browser.close()
+    return [f"layout: {i}" for i in issues]
+
+
+def screenshot(html_path: Path, png_path: Path, size: tuple[int, int] = design.FORMATS["square"]) -> Path:
+    for issue in _capture(html_path, png_path, size):
+        print(f"⚠️  {issue}", file=sys.stderr)
     return png_path
 
 
-def finish(html_path: Path, png_path: Path, fmt: str | None = None, brand_colors: bool = False) -> Path:
-    """Inject logos into an agent- or API-written page, warn about generic patterns, screenshot it."""
+def review(html_path: Path, png_path: Path, fmt: str | None = None, brand_colors: bool = False) -> list[str]:
+    """Lint the page, inject logos, screenshot it; print and return every problem found."""
     html = html_path.read_text(encoding="utf-8")
-    for warning in lint_html(html):
-        print(f"⚠️  generic-design pattern: {warning}", file=sys.stderr)
+    issues = [f"generic-design pattern: {w}" for w in lint_html(html)]
     html_path.write_text(inject_logos(html, brand_colors), encoding="utf-8")
-    return screenshot(html_path, png_path, design.canvas_size(fmt))
+    issues += _capture(html_path, png_path, design.canvas_size(fmt))
+    for issue in issues:
+        print(f"⚠️  {issue}", file=sys.stderr)
+    return issues
+
+
+def finish(html_path: Path, png_path: Path, fmt: str | None = None, brand_colors: bool = False) -> Path:
+    """Inject logos into an agent- or API-written page, warn about problems, screenshot it."""
+    review(html_path, png_path, fmt, brand_colors)
+    return png_path
+
+
+REPAIR = """
+
+YOUR PREVIOUS PAGE:
+```html
+{html}
+```
+
+PROBLEMS FOUND AFTER RENDERING IT IN CHROMIUM:
+{issues}
+
+Fix every problem without changing the thesis, archetype or content. Shorten or move text rather
+than shrinking it below the minimum sizes. Return ONLY the complete corrected HTML document."""
 
 
 def render_with_claude(
@@ -131,20 +159,32 @@ def render_with_claude(
     backend: str | None = None,
     fmt: str | None = None,
     style_dir: str | None = None,
+    repair_rounds: int = 1,
 ) -> tuple[Path, dict]:
-    """Ask the chosen backend (or Anthropic API) for the page, then finish it."""
+    """Ask the chosen backend (or Anthropic API) for the page, then finish it.
+
+    With a subscription backend, problems found after rendering are sent back to the same model
+    for up to ``repair_rounds`` corrections.
+    """
     if backend and backend != "api":
         prompt = backends.build_prompt("render", backend, model, spec, style=style, kind=kind,
                                        fmt=fmt, style_dir=style_dir)
-        raw = backends.run(backend, model, prompt)
-        html = backends.extract_html(raw)
         out = Path(output).with_suffix(".png")
         out.parent.mkdir(parents=True, exist_ok=True)
         html_path = out.with_suffix(".html")
-        html_path.write_text(html, encoding="utf-8")
+        html = backends.extract_html(backends.run(backend, model, prompt))
+        for attempt in range(repair_rounds + 1):
+            html_path.write_text(html, encoding="utf-8")
+            issues = review(html_path, out, fmt)
+            if not issues or attempt == repair_rounds:
+                break
+            print(f"🔧  Sending {len(issues)} problem(s) back to {backend} for a fix...")
+            fix = prompt + REPAIR.format(html=html, issues="\n".join(f"- {i}" for i in issues))
+            html = backends.extract_html(backends.run(backend, model, fix))
         effective_model = model or backends.BACKENDS[backend]["default_model"] or backend
-        usage = {"backend": backend, "model": effective_model, "input_tokens": 0, "output_tokens": 0, "total_cost": 0.0}
-        return finish(html_path, out, fmt), usage
+        usage = {"backend": backend, "model": effective_model, "input_tokens": 0, "output_tokens": 0,
+                 "total_cost": 0.0, "issues": issues}
+        return out, usage
 
     effective_model = model or DEFAULT_MODEL
     import anthropic

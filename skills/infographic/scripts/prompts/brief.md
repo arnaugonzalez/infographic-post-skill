@@ -2,7 +2,7 @@ You are an editorial information designer, not a template filler. Build one Link
 graphic as ONE self-contained HTML file rendered at exactly {width}×{height} CSS px (headless
 Chromium screenshots that viewport at device scale 2).
 
-CONTENT (exact names, nothing invented):
+CONTENT (exact names, nothing invented; if it has a "focus" field, the graphic is about that):
 {spec}
 
 STEP 1 — DECIDE BEFORE YOU DRAW. Write these four lines as an HTML comment at the very top of
