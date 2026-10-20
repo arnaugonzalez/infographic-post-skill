@@ -17,15 +17,19 @@ Three rendering modes with different quality/cost tradeoffs:
 ```
 "Make an infographic of this project's architecture"
 → Reads your codebase automatically
-→ AI structures it into layers (Frontend, Backend, AI/ML, Database, Auth, Infra)
-→ Gemini generates a 1080×1080px publication-ready PNG with brand logos,
-  data flow arrows, illustrated background, and professional typography
+→ The model you pick (through your Claude Code, Antigravity, Codex, Copilot or opencode
+  subscription) structures it into layers and commits to one thesis and one art direction
+→ It writes the page as HTML; Playwright renders a 1080×1350 PNG, checks it for generic
+  AI-design patterns and overlapping text, and sends any problem back for one fix
 ```
 
-The skill run on its own repository, in the `modern-light` and `illustrated` styles:
+The skill run on its own repository through `agy` with Claude Opus 5.5, in the `editorial` and
+`blueprint` archetypes (the blueprint one went through one automatic fix for two overlapping labels):
 
-![Architecture infographic of this repository, modern-light style](docs/images/infographic-skill-light.jpg)
-![Architecture infographic of this repository, illustrated style](docs/images/infographic-skill-illustrated.jpg)
+<p>
+<img src="docs/images/infographic-skill-editorial.png" width="49%" alt="Editorial infographic of this repository: the model commits to a thesis before writing HTML">
+<img src="docs/images/infographic-skill-blueprint.png" width="49%" alt="Blueprint infographic of this repository: thesis first, HTML second, one fix, then ship">
+</p>
 
 ## Install
 
