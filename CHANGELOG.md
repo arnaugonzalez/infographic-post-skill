@@ -4,33 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## 0.2.0 — unreleased
-
-### Added
-- User-selectable backend and model (`scripts/backends.py`, `scripts/doctor.py`, `scripts/prompts/`) supporting subscription CLIs (`claude`, `agy`, `codex`, `copilot`, `opencode`), in-session agent mode (`session`), and explicit API mode (`api`) via `--backend` / `--model` and `INFG_BACKEND` / `INFG_MODEL`.
-- `scripts/claude_html_renderer.py` (`--backend`, `--model`, `--print-prompt`, `--finish`), `scripts/project_digest.py` (architecture-first codebase digest), and `benchmark/` (`bench.py`, `RESULTS.md`).
-
-- Art direction for the HTML renderer (`scripts/design.py`, `scripts/prompts/archetypes.md`): five
-  archetypes (`editorial`, `blueprint`, `terminal`, `swiss`, `brutalist`) chosen with `--style`, canvas
-  formats with `--format` (`portrait` 1080×1350 by default, `square`, `landscape` 1280×640), and
-  reference pages from `style/` or `--style-dir` / `INFG_STYLE_DIR` added to the prompt.
-- `scripts/slop_lint.py`: `--finish` warns about generic AI-design patterns (gradients, glow,
-  glassmorphism, card grids, emoji, purple palettes, generic fonts and subtitles), and after
-  rendering it reports text that overlaps another block or leaves the canvas.
-- Logos and monograms are drawn in the surrounding text color by default; `--brand-colors` restores
-  brand colors.
-
-### Changed
-- The design brief (`scripts/prompts/brief.md`) is rewritten: the model writes its thesis, hero
-  element, archetype and what it cut before drawing, keeps about twelve elements and avoids a banned
-  list. It no longer asks for a "Stripe/Vercel/Linear" look or suggests Inter/Manrope.
-- `--style modern-light|modern-dark|illustrated` map to `editorial|blueprint|swiss` in the HTML renderer.
-- `auto` backend resolution prefers `session` (inside Claude Code) or the first installed subscription CLI and never selects a paid API or OpenRouter automatically.
-- `--renderer auto` routes to `claude-html` via the resolved backend; `--renderer image` is used only when requested explicitly.
-- Subscription CLIs run in an empty scratch directory, so they cannot edit the user's project. `agy`
-  runs in `--print --output-format json` mode and the HTML is read from its `response` field.
-
-## [0.1.0] — Unreleased
+## [0.1.0] — 2026-10-22
 
 First tagged release, packaged as a Claude Code plugin. The version restarts at 0.1.0: the
 entries below it were internal milestones and were never tagged or published.
@@ -52,6 +26,30 @@ entries below it were internal milestones and were never tagged or published.
   scripts, as with any other command. Unused `dependencies` front matter removed.
 - Example images moved to `docs/images/`.
 - Tests run from any directory; they no longer depend on a local checkout path.
+
+### Added (renderer and backends)
+- User-selectable backend and model (`scripts/backends.py`, `scripts/doctor.py`, `scripts/prompts/`) supporting subscription CLIs (`claude`, `agy`, `codex`, `copilot`, `opencode`), in-session agent mode (`session`), and explicit API mode (`api`) via `--backend` / `--model` and `INFG_BACKEND` / `INFG_MODEL`.
+- `scripts/claude_html_renderer.py` (`--backend`, `--model`, `--print-prompt`, `--finish`), `scripts/project_digest.py` (architecture-first codebase digest), and `benchmark/` (`bench.py`, `RESULTS.md`).
+
+- Art direction for the HTML renderer (`scripts/design.py`, `scripts/prompts/archetypes.md`): five
+  archetypes (`editorial`, `blueprint`, `terminal`, `swiss`, `brutalist`) chosen with `--style`, canvas
+  formats with `--format` (`portrait` 1080×1350 by default, `square`, `landscape` 1280×640), and
+  reference pages from `style/` or `--style-dir` / `INFG_STYLE_DIR` added to the prompt.
+- `scripts/slop_lint.py`: `--finish` warns about generic AI-design patterns (gradients, glow,
+  glassmorphism, card grids, emoji, purple palettes, generic fonts and subtitles), and after
+  rendering it reports text that overlaps another block or leaves the canvas.
+- Logos and monograms are drawn in the surrounding text color by default; `--brand-colors` restores
+  brand colors.
+
+### Changed (renderer and backends)
+- The design brief (`scripts/prompts/brief.md`) is rewritten: the model writes its thesis, hero
+  element, archetype and what it cut before drawing, keeps about twelve elements and avoids a banned
+  list. It no longer asks for a "Stripe/Vercel/Linear" look or suggests Inter/Manrope.
+- `--style modern-light|modern-dark|illustrated` map to `editorial|blueprint|swiss` in the HTML renderer.
+- `auto` backend resolution prefers `session` (inside Claude Code) or the first installed subscription CLI and never selects a paid API or OpenRouter automatically.
+- `--renderer auto` routes to `claude-html` via the resolved backend; `--renderer image` is used only when requested explicitly.
+- Subscription CLIs run in an empty scratch directory, so they cannot edit the user's project. `agy`
+  runs in `--print --output-format json` mode and the HTML is read from its `response` field.
 
 ### Removed
 - Generated files from the repository root: `linkedin_posts.md`, `QUALITY_AUDIT.md`, a test
