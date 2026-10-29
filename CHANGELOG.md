@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.1] — unreleased
+
+- README: social preview on top; new narrated demo GIF in an "Example" section; AGENTS.md for coding agents.
+
 ## [0.1.0] — 2026-10-22
 
 First tagged release, packaged as a Claude Code plugin. The version restarts at 0.1.0: the

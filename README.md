@@ -1,3 +1,5 @@
+![infographic-post-skill: the coding agent you already pay for turns a codebase into a LinkedIn-ready infographic](docs/images/social-preview.jpg)
+
 # Infographic Skill for Claude Code
 
 Generate professional, publication-ready infographics from your codebase, data, or concepts — directly from Claude Code or the CLI.
@@ -30,6 +32,9 @@ The skill run on its own repository through `agy` with Claude Opus 5.5, in the `
 <img src="docs/images/infographic-skill-editorial.png" width="49%" alt="Editorial infographic of this repository: the model commits to a thesis before writing HTML">
 <img src="docs/images/infographic-skill-blueprint.png" width="49%" alt="Blueprint infographic of this repository: thesis first, HTML second, one fix, then ship">
 </p>
+
+**Using an AI agent?** Point Claude Code, Codex, Cursor or Gemini CLI at this repo:
+[AGENTS.md](AGENTS.md) tells it how to install the skill and make an infographic for you.
 
 ## Install
 
@@ -88,6 +93,17 @@ cp .env.example .env
 # From skills/infographic/:
 python scripts/generate_pretty.py --codebase /path/to/your/project --output my_infographic.png
 ```
+
+## Example: an architecture diagram for a LinkedIn post
+
+![generate_pretty.py reads a small FastAPI + Celery + PostgreSQL + Redis project, Claude Haiku structures it into 5 layers and writes the page as HTML, the lint flags an overlap and a generic subtitle, one fix is sent back, and a 2160x2700 PNG is written](docs/images/demo.gif)
+
+`tinyshop` is a five-file sample project (FastAPI, Celery, PostgreSQL, Redis). One command reads
+it, has Claude Haiku (through the Claude Code subscription, no API key) structure it into layers
+and write the infographic as HTML, then renders it with Playwright. The `⚠️` lines are the lint:
+overlapping text and generic AI-design patterns go back to the model for one fix. The result is a
+2160×2700 PNG, like the two images above. About three minutes in real time, cut in the recording
+([vhs](https://github.com/charmbracelet/vhs)).
 
 ## Rendering Modes Explained
 
